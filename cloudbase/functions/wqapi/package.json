@@ -1,0 +1,11 @@
+{
+  "name": "wqapi",
+  "version": "1.0.0",
+  "description": "WordQuest 云函数后端（CloudBase 免费环境，文档型云数据库）",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.3",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

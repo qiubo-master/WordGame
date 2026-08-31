@@ -1,5 +1,9 @@
 import type { AuthInfo } from '../types'
 
+// 生产环境（CloudBase）通过 VITE_API_BASE 指向云函数 HTTP 域名；
+// 本地留空，则请求落到 /api，由 vite.config.ts 的 proxy 转发到本地 8787 后端。
+const API_BASE: string = import.meta.env.VITE_API_BASE || ''
+
 const AUTH_KEY = 'wq-auth'
 
 export function getAuth(): AuthInfo | null {
@@ -24,7 +28,7 @@ export function saveAuth(auth: AuthInfo | null) {
 
 async function req(path: string, init?: RequestInit): Promise<unknown> {
   const auth = getAuth()
-  const res = await fetch('/api' + path, {
+  const res = await fetch(API_BASE + '/api' + path, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -47,7 +51,7 @@ async function req(path: string, init?: RequestInit): Promise<unknown> {
 
 export async function apiHealth(): Promise<boolean> {
   try {
-    const r = await fetch('/api/health', { cache: 'no-store' })
+    const r = await fetch(API_BASE + '/api/health', { cache: 'no-store' })
     return r.ok
   } catch {
     return false
