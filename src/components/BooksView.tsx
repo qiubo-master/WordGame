@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
 import { useCurrentUser, useAppStore } from '../store/useAppStore'
-import { BOOK_METAS, loadBookWords } from '../data'
-import { computeLearnedCount } from '../engine/levels'
-import type { ViewName, Word } from '../types'
+import { BOOK_METAS } from '../data'
+import { computeBookLearnedCount } from '../engine/levels'
+import type { ViewName } from '../types'
 import { Icon } from './Icon'
 import { toast } from './Toast'
 
@@ -22,21 +21,6 @@ const CATEGORY_LABEL: Record<string, string> = {
 export function BooksView({ onNavigate }: Props) {
   const user = useCurrentUser()
   const setActiveBook = useAppStore((s) => s.setActiveBook)
-  const activeBookId = user?.activeBookId
-  const [activeWords, setActiveWords] = useState<Word[]>([])
-  useEffect(() => {
-    if (!activeBookId) {
-      setActiveWords([])
-      return
-    }
-    let alive = true
-    loadBookWords(activeBookId).then((w) => {
-      if (alive) setActiveWords(w)
-    })
-    return () => {
-      alive = false
-    }
-  }, [activeBookId])
 
   return (
     <div>
@@ -45,7 +29,7 @@ export function BooksView({ onNavigate }: Props) {
       </div>
       {BOOK_METAS.map((meta) => {
         const active = user?.activeBookId === meta.id
-        const learned = active && activeWords.length ? computeLearnedCount(activeWords, user.wordStates) : 0
+        const learned = user ? computeBookLearnedCount(meta.id, user.wordStates) : 0
         const pct = meta.wordCount ? Math.round((learned / meta.wordCount) * 100) : 0
         return (
           <button

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useCurrentUser, useAppStore, useSettings } from '../store/useAppStore'
 import { BOOK_METAS, getBookMeta, loadBookWords } from '../data'
-import { computeLearnedCount } from '../engine/levels'
-import { todayKey } from '../engine/sm2'
+import { computeLearnedCount, computeStudiedCountSince } from '../engine/levels'
+import { startOfDay } from '../engine/sm2'
 import type { ViewName, Word } from '../types'
 import { Icon } from './Icon'
 
@@ -16,7 +16,6 @@ export function HomeView({ onNavigate }: Props) {
   const settings = useSettings()
 
   const meta = user?.activeBookId ? getBookMeta(user.activeBookId) : undefined
-  const today = user?.dailyStats[todayKey()]
   const [bookWords, setBookWords] = useState<Word[]>([])
   useEffect(() => {
     if (!user?.activeBookId) {
@@ -41,8 +40,12 @@ export function HomeView({ onNavigate }: Props) {
 
   const unlimited = settings.dailyNewLimit === 0
   const dailyGoal = settings.dailyNewLimit
-  const todayNew = today?.newWords ?? 0
-  const pct = unlimited ? 100 : Math.min(100, Math.round((todayNew / dailyGoal) * 100))
+  const todayStart = startOfDay()
+  const todayStudied = computeStudiedCountSince(user.wordStates, todayStart)
+  const activeBookTodayStudied = user.activeBookId
+    ? computeStudiedCountSince(user.wordStates, todayStart, user.activeBookId)
+    : 0
+  const pct = unlimited ? 100 : Math.min(100, Math.round((todayStudied / dailyGoal) * 100))
   const threshold = settings.unlockThreshold
   const toNextLevel = meta
     ? Math.max(0, (Math.floor(learned / threshold) + 1) * threshold - learned)
@@ -53,10 +56,10 @@ export function HomeView({ onNavigate }: Props) {
       <div className="hero">
         <div className="tiny muted">今日进度</div>
         <div className="big" style={{ margin: '4px 0 2px' }}>
-          {unlimited ? `${todayNew} 词 · 不限量` : `${todayNew} / ${dailyGoal} 词`}
+          {unlimited ? `${todayStudied} 词 · 不限量` : `${todayStudied} / ${dailyGoal} 词`}
         </div>
         <div className="tiny muted">
-          {meta ? meta.name : '还没选词库'} · 连续学习 {user.streak} 天
+          {meta ? `${meta.name} · 今日学习 ${activeBookTodayStudied} 词` : '还没选词库'} · 连续学习 {user.streak} 天
         </div>
         <div className="progress-track" style={{ marginTop: 12 }}>
           <div className="progress-fill" style={{ width: `${pct}%` }} />

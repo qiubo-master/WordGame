@@ -47,6 +47,33 @@ export function computeLearnedCount(
   return n
 }
 
+export function computeBookLearnedCount(
+  bookId: string,
+  states: Record<string, UserWordState>,
+): number {
+  return Object.values(states).reduce(
+    (total, state) => total + (state.bookId === bookId && state.correctCount >= 1 ? 1 : 0),
+    0,
+  )
+}
+
+export function computeStudiedCountSince(
+  states: Record<string, UserWordState>,
+  since: number,
+  bookId?: string,
+): number {
+  return Object.values(states).reduce(
+    (total, state) =>
+      total +
+      (typeof state.lastReviewedAt === 'number' &&
+      state.lastReviewedAt >= since &&
+      (!bookId || state.bookId === bookId)
+        ? 1
+        : 0),
+    0,
+  )
+}
+
 export function isLevelUnlocked(level: GameLevel, learnedCount: number): boolean {
   return learnedCount >= level.requiredWords
 }
