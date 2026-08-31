@@ -16,6 +16,8 @@ const cloudbase = require('@cloudbase/node-sdk')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const { randomBytes } = require('node:crypto')
+const http = require('node:http')
+const { URL } = require('node:url')
 
 // ⚠️ 必须在函数环境变量中设置 JWT_SECRET，否则冷启动后老 token 全部失效
 const JWT_SECRET = process.env.JWT_SECRET || 'DEV_ONLY_INSECURE_SECRET_CHANGE_ME'
@@ -36,10 +38,9 @@ function database() {
   return _database
 }
 
-// 网关(API Gateway)格式响应：isBase64Encoded 为必需字段，缺失会导致网关无法解析
+// 内部统一响应结构，由 HTTP 服务写入原生 Node.js response。
 function json(status, obj, extraHeaders) {
   return {
-    isBase64Encoded: false,
     statusCode: status,
     headers: Object.assign(
       {
@@ -215,22 +216,14 @@ async function handleHealth() {
   }
 }
 
-exports.main = async (event) => {
+async function dispatch({ method = 'GET', path = '/', headers = {}, query = {}, body = {} }) {
   try {
-    const method = (event.httpMethod || 'GET').toUpperCase()
-    const path = (event.path || '/').split('?')[0]
-    const headers = event.headers || {}
-    const query = event.queryString || event.queryStringParameters || {}
-    let body = {}
-    if (event.body) {
-      try {
-        body = JSON.parse(event.body)
-      } catch {
-        body = {}
-      }
-    }
+    method = method.toUpperCase()
+    path = path.split('?')[0]
 
-    if (method === 'OPTIONS') return json(204, '')
+    if (method === 'OPTIONS') {
+      return json(204, '', { 'Content-Length': '0' })
+    }
     const route = routeKey(path)
 
     if (route === 'health') return await handleHealth()
@@ -256,3 +249,77 @@ exports.main = async (event) => {
     return fail((e && e.message) || e)
   }
 }
+
+function writeResponse(res, result) {
+  res.writeHead(result.statusCode || 200, result.headers || {})
+  res.end(result.body || '')
+}
+
+// CloudBase HTTP 函数是标准 Web 服务，必须监听 0.0.0.0:9000。
+// scf_bootstrap 会执行本文件；此前仅导出 main、进程随即退出，因此网关返回 443 Unknown。
+const server = http.createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+    const chunks = []
+    let size = 0
+    for await (const chunk of req) {
+      size += chunk.length
+      if (size > MAX_SAVE_BYTES + 100_000) {
+        writeResponse(res, json(413, { error: '请求内容过大' }))
+        return
+      }
+      chunks.push(chunk)
+    }
+
+    let body = {}
+    const rawBody = Buffer.concat(chunks).toString('utf8')
+    if (rawBody) {
+      try {
+        body = JSON.parse(rawBody)
+      } catch {
+        writeResponse(res, json(400, { error: 'JSON 格式不正确' }))
+        return
+      }
+    }
+
+    const result = await dispatch({
+      method: req.method || 'GET',
+      path: url.pathname,
+      headers: req.headers,
+      query: Object.fromEntries(url.searchParams.entries()),
+      body,
+    })
+    writeResponse(res, result)
+  } catch (e) {
+    console.error('[wqapi] HTTP server error:', e)
+    writeResponse(res, fail((e && e.message) || e))
+  }
+})
+
+if (require.main === module) {
+  const port = Number(process.env.PORT) || 9000
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`[wqapi] listening on 0.0.0.0:${port}`)
+  })
+}
+
+// 保留事件入口，便于本地测试及兼容非 HTTP 函数调用，但 HTTP 部署走上面的 server。
+exports.main = async (event = {}) => {
+  let body = {}
+  if (event.body) {
+    try {
+      body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body
+    } catch {
+      return json(400, { error: 'JSON 格式不正确' })
+    }
+  }
+  return dispatch({
+    method: event.httpMethod || event.requestContext?.http?.method || 'GET',
+    path: event.path || event.rawPath || '/',
+    headers: event.headers || {},
+    query: event.queryString || event.queryStringParameters || {},
+    body,
+  })
+}
+
+exports.dispatch = dispatch

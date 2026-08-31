@@ -1,0 +1,104 @@
+name: CloudBase CI/CD
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudbase-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CI: 'true'
+  TCB_ENV_ID: wordgame-1-d7gx6qvym115a8f41
+  VITE_API_BASE: https://wordgame-1-d7gx6qvym115a8f41-1348325609.ap-shanghai.app.tcloudbase.com/wqapi/api
+
+jobs:
+  verify:
+    name: Typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload frontend artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wordgame-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy CloudBase production
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      TCB_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
+      TCB_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wordgame-dist
+          path: dist
+
+      - name: Install CloudBase CLI
+        run: npm install --global @cloudbase/cli@latest
+
+      - name: Check deployment credentials
+        run: |
+          test -n "$TCB_SECRET_ID" || (echo "Missing GitHub Secret: TCB_SECRET_ID" && exit 1)
+          test -n "$TCB_SECRET_KEY" || (echo "Missing GitHub Secret: TCB_SECRET_KEY" && exit 1)
+
+      - name: Log in to CloudBase
+        run: tcb login --apiKeyId "$TCB_SECRET_ID" --apiKey "$TCB_SECRET_KEY"
+
+      - name: Deploy HTTP function
+        run: |
+          tcb fn deploy wqapi \
+            --dir cloudbase/functions/wqapi \
+            -e "$TCB_ENV_ID" \
+            --runtime Nodejs20.19 \
+            --httpFn \
+            --install-dependency true \
+            --force
+
+      - name: Deploy frontend hosting
+        run: tcb hosting deploy dist -e "$TCB_ENV_ID"
+
+      - name: Verify production health
+        run: curl --fail --show-error --silent --retry 5 --retry-delay 5 "$VITE_API_BASE/health"

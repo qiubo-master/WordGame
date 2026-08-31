@@ -84,8 +84,9 @@ tcb fn deploy wqapi \
 形如 `wordgame-1-xxxx-1348325609.ap-shanghai.app.tcloudbase.com`），**复制它**，第 6 步要用。
 
 > 验证连通：`curl https://<网关默认域名>/wqapi/api/health` 应返回 `{"ok":true}`。
-> 若返回 `INVALID_PATH` 或空响应 + 响应头 `x-cloudbase-upstream-status-code: 443`，多半是：
-> (a) 网关路由没建或没启用；或 (b) 函数返回格式缺 `isBase64Encoded` 字段（本仓库已修复，见 FAQ）。
+> 若返回 `INVALID_PATH`，通常是网关路由没建或没启用；若返回空响应且响应头包含
+> `x-cloudbase-upstream-type: Tencent-SCF_HTTP`、`x-cloudbase-upstream-status-code: 443`，说明 HTTP
+> 函数进程没有正常监听端口。当前代码已按 CloudBase 规范监听 `0.0.0.0:9000`。
 
 ## 第 5 步：设置 JWT_SECRET（关键）
 控制台 **wqapi → 函数配置 → 环境变量**，新增：
@@ -148,4 +149,4 @@ https://<环境ID>.tcloudbase.com
 - **CORS 报错**：函数已返回 `Access-Control-Allow-Origin: *`，正常不会出现；若出现多为 URL 拼错（多了/少了 `/api`）。
 - **免费环境到期**：Web 不受影响（仅小程序触发 15 天规则）；升「基础版/个人版」即可长期使用。
 - **curl 返回 `{"code":"INVALID_PATH",...}`**：HTTP 网关没有 `/wqapi` 路由（路由管理为空）。回第 4 步手动加路由，或重新部署时加 `--path /wqapi`（CLI 会自动建路由）。
-- **curl 返回空响应 + 响应头 `x-cloudbase-upstream-status-code: 443`（HTTP/1.1 443 Unknown）**：CloudBase 网关要求函数返回 **API Gateway 格式**，其中 `isBase64Encoded` 是必需字段。缺失时网关无法解析函数响应，会伪装成 443 空响应。本仓库 `wqapi/index.js` 已补 `isBase64Encoded: false`；若仍出现，去 **云函数日志** 看 `handler error` 具体报错（常见：`cloudbase.init` 抛错、`JWT_SECRET` 未设导致 init 拿不到环境、**依赖没装成功** `Cannot find module`）。本仓库把 `init` 改为懒初始化 + 整个 handler 包 try/catch，出错会返回可读 500 而非 443。
+- **curl 返回空响应 + 响应头 `x-cloudbase-upstream-status-code: 443`（HTTP/1.1 443 Unknown）**：`--httpFn` 部署的是标准 HTTP 服务，不是 API Gateway 事件函数，程序必须持续运行并监听 `0.0.0.0:9000`。本仓库的 `scf_bootstrap` 会启动 `index.js`，而 `index.js` 已创建 Node.js HTTP 服务并监听该端口。重新部署后若仍出现 443，请在 **云函数日志** 检查启动阶段错误，重点查看依赖是否安装成功（如 `Cannot find module`）以及运行时是否为 Node.js 20。
