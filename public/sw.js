@@ -1,6 +1,6 @@
-// WordQuest service worker —— 离线壳 + 静态资源运行时缓存
+// WordQuest service worker —— 页面网络优先，带哈希的静态资源缓存优先。
 // 不缓存 /api/*，保证登录与云端同步始终走网络。
-const CACHE = 'wq-shell-v1'
+const CACHE = 'wq-shell-v2'
 
 self.addEventListener('install', () => {
   self.skipWaiting()
@@ -20,6 +20,28 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return
   if (url.pathname.startsWith('/api/')) return
+
+  // 自动更新检查必须直连网络，不能被旧的 index.html 缓存拦截。
+  if (url.searchParams.has('__wq_update')) {
+    event.respondWith(fetch(req, { cache: 'no-store' }))
+    return
+  }
+
+  const wantsHtml = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')
+  if (wantsHtml) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const copy = res.clone()
+            caches.open(CACHE).then((cache) => cache.put(req, copy))
+          }
+          return res
+        })
+        .catch(async () => (await caches.open(CACHE)).match(req) || (await caches.match('/'))),
+    )
+    return
+  }
 
   event.respondWith(
     caches.open(CACHE).then(async (cache) => {
