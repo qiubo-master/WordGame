@@ -56,7 +56,14 @@ function json(status, obj, extraHeaders) {
 }
 
 function fail(message) {
-  return json(500, { error: String(message) })
+  const detail = String(message || '')
+  if (/database|collection|comparison command|field name/i.test(detail)) {
+    return json(500, { error: '账号服务暂时繁忙，请稍后再试' })
+  }
+  if (/module|dependency/i.test(detail)) {
+    return json(500, { error: '服务器配置异常，请联系管理员' })
+  }
+  return json(500, { error: '服务器暂时开小差，请稍后再试' })
 }
 
 function signToken(user) {
@@ -123,7 +130,7 @@ async function handleRegister(body) {
 
   const existing = await db
     .collection('users')
-    .where(_.or([_.eq('usernameLower', username.toLowerCase()), _.eq('phone', phone)]))
+    .where(_.or([{ usernameLower: username.toLowerCase() }, { phone }]))
     .get()
 
   if (existing.data && existing.data.length) {
@@ -155,9 +162,12 @@ async function handleLogin(body) {
   const _ = db.command
   const account = String(body.account ?? '').trim()
   const password = String(body.password ?? '')
+  if (!account || !password) {
+    return json(400, { error: '请输入账号和密码' })
+  }
   const r = await db
     .collection('users')
-    .where(_.or([_.eq('usernameLower', account.toLowerCase()), _.eq('phone', account)]))
+    .where(_.or([{ usernameLower: account.toLowerCase() }, { phone: account }]))
     .get()
   const row = r.data && r.data[0]
   if (!row || !bcrypt.compareSync(password, row.password_hash)) {

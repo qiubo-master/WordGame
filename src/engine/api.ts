@@ -8,6 +8,14 @@ const API_BASE: string =
 
 const AUTH_KEY = 'wq-auth'
 
+function friendlyApiError(message: unknown, status: number): string {
+  if (typeof message === 'string' && /[\u4e00-\u9fff]/.test(message)) return message
+  if (status === 401) return '账号或密码不对'
+  if (status === 409) return '账号信息已被使用，请更换后重试'
+  if (status >= 500) return '服务器暂时开小差，请稍后再试'
+  return `请求失败，请稍后重试（${status}）`
+}
+
 export function getAuth(): AuthInfo | null {
   try {
     const raw = localStorage.getItem(AUTH_KEY)
@@ -46,7 +54,7 @@ async function req(path: string, init?: RequestInit): Promise<unknown> {
   }
   if (!res.ok) {
     const msg = (body as { error?: string } | null)?.error
-    throw new Error(msg || `请求失败（${res.status}）`)
+    throw new Error(friendlyApiError(msg, res.status))
   }
   return body
 }
