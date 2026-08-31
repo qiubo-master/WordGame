@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * WordQuest 云函数后端（CloudBase 免费环境）
+ * WordQuest 云函数后端（CloudBase HTTP 函数 + 文档型云数据库）
  *
  * 与本地 server/index.js 完全对齐的 6 个接口：
  *   GET  /api/health
@@ -10,20 +10,12 @@
  *   POST /api/login      { account, password }
  *   GET  /api/save       (需 Authorization: Bearer <token>)
  *   PUT  /api/save       { data }       (需 Authorization: Bearer <token>)
- *
- * 存储由 node:sqlite 改为 CloudBase 云数据库（文档型集合 users / saves）。
- * 通过 HTTP 触发对外暴露，前端用 VITE_API_BASE 指向本函数域名，同源/跨域均可用。
  */
 
 const cloudbase = require('@cloudbase/node-sdk')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const { randomBytes } = require('node:crypto')
-
-// v3：云函数内不传 env 会自动使用当前环境
-const app = cloudbase.init({})
-const db = app.database()
-const _ = db.command
 
 // ⚠️ 必须在函数环境变量中设置 JWT_SECRET，否则冷启动后老 token 全部失效
 const JWT_SECRET = process.env.JWT_SECRET || 'DEV_ONLY_INSECURE_SECRET_CHANGE_ME'
@@ -33,8 +25,21 @@ if (!process.env.JWT_SECRET) {
 
 const MAX_SAVE_BYTES = 2_000_000
 
+// 懒初始化：init 放在模块顶层一旦抛错，整个函数会返回网关无法解析的响应
+// （表现为 HTTP/1.1 443 Unknown）；改为按需初始化后，错误可被 handler 捕获并返回可读信息。
+let _database = null
+function database() {
+  if (_database) return _database
+  const envId = process.env.CLOUDBASE_ENV_ID || cloudbase.SYMBOL_CURRENT_ENV
+  const app = envId ? cloudbase.init({ env: envId }) : cloudbase.init({})
+  _database = app.database()
+  return _database
+}
+
+// 网关(API Gateway)格式响应：isBase64Encoded 为必需字段，缺失会导致网关无法解析
 function json(status, obj, extraHeaders) {
   return {
+    isBase64Encoded: false,
     statusCode: status,
     headers: Object.assign(
       {
@@ -47,6 +52,10 @@ function json(status, obj, extraHeaders) {
     ),
     body: typeof obj === 'string' ? obj : JSON.stringify(obj),
   }
+}
+
+function fail(message) {
+  return json(500, { error: String(message) })
 }
 
 function signToken(user) {
@@ -79,6 +88,7 @@ function routeKey(path) {
 }
 
 async function handleCheck(query) {
+  const db = database()
   const username = query.username ? String(query.username) : ''
   const phone = query.phone ? String(query.phone) : ''
   const out = { usernameTaken: false, phoneTaken: false }
@@ -94,6 +104,8 @@ async function handleCheck(query) {
 }
 
 async function handleRegister(body) {
+  const db = database()
+  const _ = db.command
   const username = String(body.username ?? '').trim()
   const phone = String(body.phone ?? '').trim()
   const password = String(body.password ?? '')
@@ -138,6 +150,8 @@ async function handleRegister(body) {
 }
 
 async function handleLogin(body) {
+  const db = database()
+  const _ = db.command
   const account = String(body.account ?? '').trim()
   const password = String(body.password ?? '')
   const r = await db
@@ -158,7 +172,7 @@ async function handleLogin(body) {
 
 async function handleGetSave(auth) {
   if (!auth) return json(401, { error: '未登录' })
-  const r = await db.collection('saves').where({ userId: auth.uid }).get()
+  const r = await database().collection('saves').where({ userId: auth.uid }).get()
   const row = r.data && r.data[0]
   if (!row) return json(200, { data: null, updatedAt: null })
   let data = null
@@ -181,6 +195,7 @@ async function handlePutSave(body, auth) {
     return json(413, { error: '存档过大' })
   }
   const now = Date.now()
+  const db = database()
   const r = await db.collection('saves').where({ userId: auth.uid }).get()
   if (r.data && r.data.length) {
     await db.collection('saves').doc(r.data[0]._id).update({ data: jsonStr, updatedAt: now })
@@ -190,38 +205,54 @@ async function handlePutSave(body, auth) {
   return json(200, { ok: true, updatedAt: now })
 }
 
+// health 顺带自检数据库连通性，便于定位 init / 权限问题
+async function handleHealth() {
+  try {
+    await database().collection('users').limit(1).get()
+    return json(200, { ok: true, db: 'ok' })
+  } catch (e) {
+    return json(200, { ok: false, db: String((e && e.message) || e) })
+  }
+}
+
 exports.main = async (event) => {
-  const method = (event.httpMethod || 'GET').toUpperCase()
-  const path = (event.path || '/').split('?')[0]
-  const headers = event.headers || {}
-  const query = event.queryString || event.queryStringParameters || {}
-  let body = {}
-  if (event.body) {
-    try {
-      body = JSON.parse(event.body)
-    } catch {
-      body = {}
+  try {
+    const method = (event.httpMethod || 'GET').toUpperCase()
+    const path = (event.path || '/').split('?')[0]
+    const headers = event.headers || {}
+    const query = event.queryString || event.queryStringParameters || {}
+    let body = {}
+    if (event.body) {
+      try {
+        body = JSON.parse(event.body)
+      } catch {
+        body = {}
+      }
     }
-  }
 
-  if (method === 'OPTIONS') return json(204, '')
-  const route = routeKey(path)
+    if (method === 'OPTIONS') return json(204, '')
+    const route = routeKey(path)
 
-  if (route === 'health') return json(200, { ok: true })
-  if (route === 'check') return handleCheck(query)
-  if (route === 'register') {
-    if (method !== 'POST') return json(405, { error: 'method not allowed' })
-    return handleRegister(body)
+    if (route === 'health') return await handleHealth()
+    if (route === 'check') return await handleCheck(query)
+    if (route === 'register') {
+      if (method !== 'POST') return json(405, { error: 'method not allowed' })
+      return await handleRegister(body)
+    }
+    if (route === 'login') {
+      if (method !== 'POST') return json(405, { error: 'method not allowed' })
+      return await handleLogin(body)
+    }
+    if (route === 'save') {
+      const auth = authFrom(headers)
+      if (method === 'GET') return await handleGetSave(auth)
+      if (method === 'PUT') return await handlePutSave(body, auth)
+      return json(405, { error: 'method not allowed' })
+    }
+    return json(404, { error: 'not found', path })
+  } catch (e) {
+    // 兜底：出错时返回可读错误，避免网关收到不可解析响应而报 443 Unknown
+    console.error('[wqapi] handler error:', e)
+    return fail((e && e.message) || e)
   }
-  if (route === 'login') {
-    if (method !== 'POST') return json(405, { error: 'method not allowed' })
-    return handleLogin(body)
-  }
-  if (route === 'save') {
-    const auth = authFrom(headers)
-    if (method === 'GET') return handleGetSave(auth)
-    if (method === 'PUT') return handlePutSave(body, auth)
-    return json(405, { error: 'method not allowed' })
-  }
-  return json(404, { error: 'not found' })
 }

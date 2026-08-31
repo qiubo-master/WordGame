@@ -72,8 +72,20 @@ tcb fn deploy wqapi \
 > 可选：`--path /api` 用于指定 HTTP 访问路径；本项目的函数按**路径后缀**路由（`/register`、`/login`…），
 > 任何前缀都能命中，所以**不需要**加 `--path`。
 
-看到 `wqapi 部署成功` 即 OK。部署后在控制台 **云函数/托管 → wqapi** 能看到函数的 **HTTP 访问 URL**，
-形如 `https://wordgame-1-xxxx.api.tcloudbase.com/wqapi`，**复制它**，第 6 步要用。
+看到 `wqapi 部署成功` 即 OK。但注意：**`--httpFn` 只是让函数具备 HTTP 访问能力，不会自动创建网关路由**，
+必须手动在 **HTTP 网关 → 路由管理** 点「+ 添加该域名路由」新建一条：
+- **路由**：`/wqapi`（或 `/*`）
+- **资源类型**：云函数
+- **资源对象**：`wqapi`
+- **路径透传**：开（让 `/wqapi/api/health` 完整透传给函数）
+- **跨域**：先不填（函数自带 `Access-Control-Allow-Origin: *`）
+
+建好后，函数的 HTTP 访问 URL 形如 `https://<网关默认域名>/wqapi`（`网关默认域名` 在 HTTP 网关页顶部，
+形如 `wordgame-1-xxxx-1348325609.ap-shanghai.app.tcloudbase.com`），**复制它**，第 6 步要用。
+
+> 验证连通：`curl https://<网关默认域名>/wqapi/api/health` 应返回 `{"ok":true}`。
+> 若返回 `INVALID_PATH` 或空响应 + 响应头 `x-cloudbase-upstream-status-code: 443`，多半是：
+> (a) 网关路由没建或没启用；或 (b) 函数返回格式缺 `isBase64Encoded` 字段（本仓库已修复，见 FAQ）。
 
 ## 第 5 步：设置 JWT_SECRET（关键）
 控制台 **wqapi → 函数配置 → 环境变量**，新增：
@@ -135,3 +147,5 @@ https://<环境ID>.tcloudbase.com
 - **注册提示网络错误**：检查 HTTP 触发 URL 是否填对、函数是否部署成功、`curl /api/health` 通不通。
 - **CORS 报错**：函数已返回 `Access-Control-Allow-Origin: *`，正常不会出现；若出现多为 URL 拼错（多了/少了 `/api`）。
 - **免费环境到期**：Web 不受影响（仅小程序触发 15 天规则）；升「基础版/个人版」即可长期使用。
+- **curl 返回 `{"code":"INVALID_PATH",...}`**：HTTP 网关没有 `/wqapi` 路由（路由管理为空）。回第 4 步手动加路由，或重新部署时加 `--path /wqapi`（CLI 会自动建路由）。
+- **curl 返回空响应 + 响应头 `x-cloudbase-upstream-status-code: 443`（HTTP/1.1 443 Unknown）**：CloudBase 网关要求函数返回 **API Gateway 格式**，其中 `isBase64Encoded` 是必需字段。缺失时网关无法解析函数响应，会伪装成 443 空响应。本仓库 `wqapi/index.js` 已补 `isBase64Encoded: false`；若仍出现，去 **云函数日志** 看 `handler error` 具体报错（常见：`cloudbase.init` 抛错、`JWT_SECRET` 未设导致 init 拿不到环境、**依赖没装成功** `Cannot find module`）。本仓库把 `init` 改为懒初始化 + 整个 handler 包 try/catch，出错会返回可读 500 而非 443。
