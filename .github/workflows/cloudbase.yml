@@ -17,7 +17,7 @@ permissions:
 env:
   CI: 'true'
   TCB_ENV_ID: wordgame-1-d7gx6qvym115a8f41
-  VITE_API_BASE: https://wordgame-1-d7gx6qvym115a8f41-1348325609.ap-shanghai.app.tcloudbase.com/wqapi/api
+  VITE_API_BASE: https://wordgame-1-d7gx6qvym115a8f41-1348325609.ap-shanghai.app.tcloudbase.com/wqapi
 
 jobs:
   verify:
@@ -101,4 +101,4 @@ jobs:
         run: tcb hosting deploy dist -e "$TCB_ENV_ID"
 
       - name: Verify production health
-        run: curl --fail --show-error --silent --retry 5 --retry-delay 5 "$VITE_API_BASE/health"
+        run: curl --fail --show-error --silent --retry 5 --retry-delay 5 "$VITE_API_BASE/api/health"
