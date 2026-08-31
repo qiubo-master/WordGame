@@ -41,36 +41,56 @@ tcb env list         # 确认能看到第 0 步的环境 ID
 > 文档型数据库没有 SQL 唯一约束，去重逻辑已在 `wqapi` 里用「先查后插」保证。
 > 建议给 `users` 的 `usernameLower`、`phone` 各建一个**单字段索引**（非唯一即可），提升查重/登录速度。
 
-## 第 3 步：填 cloudbase.json 的环境 ID
-打开仓库根 `cloudbase.json`，把 `"envId": "YOUR_ENV_ID"` 改成你的真实环境 ID。
-（函数名 `wqapi`、handler `index.main` 不要改；`JWT_SECRET` 占位稍后在第 5 步设真实值。）
+## 第 3 步：填配置文件的环境 ID
+打开仓库根 **`cloudbaserc.json`**（注意是 `cloudbaserc` 带 rc 后缀，不是 `cloudbase.json`），
+把 `"envId"` 改成你的真实环境 ID。
 
-## 第 4 步：部署云函数
+> ⚠️ **文件名必须是 `cloudbaserc.json`**：CLI 3.x 的 `fn deploy` 明确只读 `cloudbaserc.json`
+> （官方 help 原文：`Auto reads cloudbaserc.json`）。写成 `cloudbase.json` 会报「未找到配置文件」，
+> 然后 CLI 改为**从当前目录打包**，导致上传的 zip 根层没有 `index.js`，云端构建报
+> `zip code format error / filename not matched: index.js` 而部署失败。
+
+## 第 4 步：部署云函数（必须用 `--dir` + `--httpFn`）
+在**仓库根目录**执行：
 ```bash
-tcb fn deploy wqapi -e <你的环境ID>
+cd ~/WorkBuddy/开发小程序
+tcb fn deploy wqapi \
+  --dir cloudbase/functions/wqapi \
+  -e wordgame-1-d7gx6qvym115a8f41 \
+  --runtime Nodejs20.19 \
+  --httpFn \
+  --install-dependency true \
+  --force
 ```
-部署时 CLI 会读取 `cloudbase/functions/wqapi/package.json` 安装依赖并上传。
-看到 `wqapi 部署成功` 即 OK。
 
-## 第 5 步：开启 HTTP 触发 + 设置 JWT_SECRET（关键）
-1. 控制台 **CloudBase → 云函数 → wqapi → 触发管理 → 新建触发 → 类型选「HTTP 触发」**。
-   创建后会得到一个公开 URL，形如：
-   ```
-   https://<环境ID>.api.tcloudbase.com/wqapi
-   ```
-   复制这个 URL，第 7 步要用。
-2. **必须设置 JWT_SECRET**：控制台 **wqapi → 函数配置 → 环境变量**，新增
-   `JWT_SECRET = <一段你自己生成的随机串，建议 32 位以上十六进制>`。
-   ```bash
-   # 本地生成一串随机密钥
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   ```
-   ⚠️ 不设的话云函数会用临时密钥，每次冷启动老 token 全部失效，用户会被强制登出。
+> ⚠️ **两个必不可少的参数**：
+> - **`--dir cloudbase/functions/wqapi`**：显式指定函数目录，保证 zip 根层就有 `index.js`。
+>   不指定的话 CLI 会打包当前目录 → 云端报 `filename not matched: index.js`。
+> - **`--httpFn`**：不加则函数按**事件类型**部署，**无法通过 URL 访问**（官方 help：
+>   `without this flag, defaults to Event type and cannot be accessed via HTTP URL`）。
+>
+> 可选：`--path /api` 用于指定 HTTP 访问路径；本项目的函数按**路径后缀**路由（`/register`、`/login`…），
+> 任何前缀都能命中，所以**不需要**加 `--path`。
+
+看到 `wqapi 部署成功` 即 OK。部署后在控制台 **云函数/托管 → wqapi** 能看到函数的 **HTTP 访问 URL**，
+形如 `https://wordgame-1-xxxx.api.tcloudbase.com/wqapi`，**复制它**，第 6 步要用。
+
+## 第 5 步：设置 JWT_SECRET（关键）
+控制台 **wqapi → 函数配置 → 环境变量**，新增：
+- Key：`JWT_SECRET`
+- Value：本地生成一串随机密钥后粘贴
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+
+> ⚠️ 不设的话云函数会用临时密钥，每次冷启动老 token 全部失效，用户会被强制登出。
+> ⚠️ **不要把 JWT_SECRET 写进 `cloudbaserc.json` 的 `envVariables`**——CLI 每次部署都会用配置文件里的值
+> **覆盖**控制台设置，等于每次部署把所有用户踢下线。密钥只在控制台设，配置文件里留空。
 
 ## 第 6 步：构建公网版前端
 ```bash
 cp .env.production.example .env.production
-# 编辑 .env.production，把 VITE_API_BASE 改成第 5 步拿到的 HTTP 触发 URL
+# 编辑 .env.production，把 VITE_API_BASE 改成第 4 步拿到的函数 HTTP 访问 URL
 npm run build        # 产物在 dist/，已内联 API_BASE
 ```
 

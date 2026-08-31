@@ -1,0 +1,13 @@
+{
+  "envId": "wordgame-1-d7gx6qvym115a8f41",
+  "functionRoot": "cloudbase/functions",
+  "functions": [
+    {
+      "name": "wqapi",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "memorySize": 256,
+      "timeout": 20
+    }
+  ]
+}
