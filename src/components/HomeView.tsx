@@ -125,7 +125,7 @@ export function HomeView({ onNavigate }: Props) {
         <button className="menu-item" onClick={() => onNavigate('levels')}>
           <Icon name="flag" color="var(--purple)" />
           <div className="t">闯关</div>
-          <div className="d">5种游戏 · 每10词解锁</div>
+          <div className="d">每10词解锁 · 闯关打 Boss</div>
         </button>
         <button className="menu-item" onClick={() => onNavigate('bag')}>
           <Icon name="bag" color="var(--success)" />

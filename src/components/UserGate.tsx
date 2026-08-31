@@ -212,7 +212,7 @@ export function UserGate({ onEnterAdmin }: Props) {
         </div>
         <h1>单词闯关</h1>
         <div className="muted" style={{ fontSize: 14 }}>
-          背单词赚金币，解锁关卡打地鼠
+          背单词赚金币，解锁关卡打 Boss
         </div>
         {online !== null && (
           <div className="tiny muted" style={{ marginTop: 6 }}>
