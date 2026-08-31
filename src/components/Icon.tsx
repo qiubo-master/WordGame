@@ -20,6 +20,7 @@ const PATHS: Record<string, string> = {
   check: 'M4 12l5 5L20 6',
   lock: 'M6 11h12v9H6v-9zM9 11V7a3 3 0 016 0v4',
   coin: 'M12 2a10 10 0 100 20 10 10 0 000-20zM9 9h6M9 13h6M12 9v8',
+  trophy: 'M8 4h8v4a4 4 0 01-8 0V4zM8 6H4v2a4 4 0 004 4M16 6h4v2a4 4 0 01-4 4M12 12v5M8 21h8M9 17h6v4',
 }
 
 export function Icon({ name, size = 22, color = 'currentColor' }: IconProps) {

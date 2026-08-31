@@ -1,4 +1,4 @@
-import type { AuthInfo } from '../types'
+import type { AuthInfo, LeaderboardEntry } from '../types'
 
 // 生产环境（CloudBase）通过 VITE_API_BASE 指向云函数 HTTP 域名；
 // 本地留空，则请求落到 /api，由 vite.config.ts 的 proxy 转发到本地 8787 后端。
@@ -103,4 +103,11 @@ export async function apiPutSave(data: unknown): Promise<{ ok: boolean; updatedA
     method: 'PUT',
     body: JSON.stringify({ data }),
   }) as Promise<{ ok: boolean; updatedAt: number }>
+}
+
+export async function apiGetLeaderboard(): Promise<{
+  rows: LeaderboardEntry[]
+  generatedAt: number
+}> {
+  return req('/leaderboard') as Promise<{ rows: LeaderboardEntry[]; generatedAt: number }>
 }

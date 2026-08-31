@@ -10,6 +10,7 @@
  *   POST /api/login      { account, password }
  *   GET  /api/save       (需 Authorization: Bearer <token>)
  *   PUT  /api/save       { data }       (需 Authorization: Bearer <token>)
+ *   GET  /api/leaderboard               (需 Authorization: Bearer <token>)
  */
 
 const cloudbase = require('@cloudbase/node-sdk')
@@ -91,6 +92,7 @@ function routeKey(path) {
   if (path.endsWith('/login')) return 'login'
   if (path.endsWith('/check')) return 'check'
   if (path.endsWith('/save')) return 'save'
+  if (path.endsWith('/leaderboard')) return 'leaderboard'
   if (path.endsWith('/health')) return 'health'
   return null
 }
@@ -206,14 +208,109 @@ async function handlePutSave(body, auth) {
     return json(413, { error: '存档过大' })
   }
   const now = Date.now()
+  const summary = summarizeSave(data, now)
   const db = database()
   const r = await db.collection('saves').where({ userId: auth.uid }).get()
   if (r.data && r.data.length) {
-    await db.collection('saves').doc(r.data[0]._id).update({ data: jsonStr, updatedAt: now })
+    await db.collection('saves').doc(r.data[0]._id).update({
+      data: jsonStr,
+      updatedAt: now,
+      username: auth.username,
+      todayCount: summary.todayCount,
+      totalCount: summary.totalCount,
+      statsDate: summary.statsDate,
+    })
   } else {
-    await db.collection('saves').add({ userId: auth.uid, data: jsonStr, updatedAt: now })
+    await db.collection('saves').add({
+      userId: auth.uid,
+      data: jsonStr,
+      updatedAt: now,
+      username: auth.username,
+      todayCount: summary.todayCount,
+      totalCount: summary.totalCount,
+      statsDate: summary.statsDate,
+    })
   }
   return json(200, { ok: true, updatedAt: now })
+}
+
+function shanghaiDateInfo(now = Date.now()) {
+  const local = new Date(now + 8 * 60 * 60 * 1000)
+  const year = local.getUTCFullYear()
+  const month = local.getUTCMonth()
+  const day = local.getUTCDate()
+  return {
+    key: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+    start: Date.UTC(year, month, day) - 8 * 60 * 60 * 1000,
+  }
+}
+
+function summarizeSave(data, now = Date.now()) {
+  const states = data && data.wordStates && typeof data.wordStates === 'object' ? Object.values(data.wordStates) : []
+  const date = shanghaiDateInfo(now)
+  let todayCount = 0
+  let totalCount = 0
+  for (const state of states) {
+    if (!state || typeof state !== 'object') continue
+    if (Number(state.correctCount) >= 1) totalCount += 1
+    if (typeof state.lastReviewedAt === 'number' && state.lastReviewedAt >= date.start) todayCount += 1
+  }
+  return { todayCount, totalCount, statsDate: date.key }
+}
+
+async function loadAll(collection, pageSize = 100) {
+  const rows = []
+  for (let offset = 0; offset < 10_000; offset += pageSize) {
+    const result = await collection.skip(offset).limit(pageSize).get()
+    const page = Array.isArray(result.data) ? result.data : []
+    rows.push(...page)
+    if (page.length < pageSize) break
+  }
+  return rows
+}
+
+async function handleLeaderboard(auth) {
+  if (!auth) return json(401, { error: '请先登录账号，再查看排行榜' })
+  const db = database()
+  const [saves, users] = await Promise.all([
+    loadAll(db.collection('saves')),
+    loadAll(db.collection('users')),
+  ])
+  const usernameById = new Map(users.map((user) => [user._id, user.username]))
+  const saveByUserId = new Map(saves.map((save) => [save.userId, save]))
+  const todayKey = shanghaiDateInfo().key
+  const accountIds = new Set([...users.map((user) => user._id), ...saves.map((save) => save.userId)])
+  const rows = [...accountIds].map((userId) => {
+    const save = saveByUserId.get(userId)
+    let summary = null
+    if (!save) {
+      summary = { todayCount: 0, totalCount: 0 }
+    } else if (save.statsDate === todayKey && Number.isFinite(Number(save.todayCount)) && Number.isFinite(Number(save.totalCount))) {
+      summary = { todayCount: Number(save.todayCount), totalCount: Number(save.totalCount) }
+    } else {
+      try {
+        summary = summarizeSave(JSON.parse(save.data || '{}'))
+      } catch {
+        summary = { todayCount: 0, totalCount: 0 }
+      }
+    }
+    return {
+      userId,
+      username: String((save && save.username) || usernameById.get(userId) || '学习者'),
+      todayCount: summary.todayCount,
+      totalCount: summary.totalCount,
+      isMe: userId === auth.uid,
+    }
+  })
+  rows.sort((a, b) =>
+    b.todayCount - a.todayCount ||
+    b.totalCount - a.totalCount ||
+    a.username.localeCompare(b.username, 'zh-CN'),
+  )
+  return json(200, {
+    rows: rows.map((row, index) => ({ ...row, rank: index + 1 })),
+    generatedAt: Date.now(),
+  })
 }
 
 // health 顺带自检数据库连通性，便于定位 init / 权限问题
@@ -245,6 +342,10 @@ async function dispatch({ method = 'GET', path = '/', headers = {}, query = {}, 
     if (route === 'login') {
       if (method !== 'POST') return json(405, { error: 'method not allowed' })
       return await handleLogin(body)
+    }
+    if (route === 'leaderboard') {
+      if (method !== 'GET') return json(405, { error: '请求方式不支持' })
+      return await handleLeaderboard(authFrom(headers))
     }
     if (route === 'save') {
       const auth = authFrom(headers)

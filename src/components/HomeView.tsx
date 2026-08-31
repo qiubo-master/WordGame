@@ -88,16 +88,38 @@ export function HomeView({ onNavigate }: Props) {
       </div>
 
       <div className="section-title">开始</div>
-      <button
-        className="btn"
-        onClick={() => {
-          touch()
-          if (!user.activeBookId) onNavigate('books')
-          else onNavigate('study')
-        }}
-      >
-        {user.activeBookId ? '继续背单词' : '选择词库'}
-      </button>
+      {meta ? (
+        <div className="card current-book-card">
+          <button className="current-book-summary" onClick={() => onNavigate('books')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>{meta.name}</span>
+              <span className="tag">{meta.wordCount} 词</span>
+              <span className="tag">换词库</span>
+            </div>
+            <div className="tiny muted" style={{ marginTop: 6 }}>
+              已掌握 {learned} 词 · 再背 {toNextLevel} 词解锁下一关 · 共{' '}
+              {Math.ceil(meta.wordCount / Math.max(1, settings.unitSize))} 关
+            </div>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${Math.round((learned / meta.wordCount) * 100)}%` }}
+              />
+            </div>
+          </button>
+          <button
+            className="btn"
+            onClick={() => {
+              touch()
+              onNavigate('study')
+            }}
+          >
+            继续背单词
+          </button>
+        </div>
+      ) : (
+        <button className="btn" onClick={() => onNavigate('books')}>选择词库</button>
+      )}
 
       <div className="menu-grid" style={{ marginTop: 12 }}>
         <button className="menu-item" onClick={() => onNavigate('levels')}>
@@ -122,29 +144,6 @@ export function HomeView({ onNavigate }: Props) {
         </button>
       </div>
 
-      {meta && (
-        <button
-          className="card"
-          style={{ marginTop: 16, width: '100%', textAlign: 'left' }}
-          onClick={() => onNavigate('books')}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 500 }}>{meta.name}</span>
-            <span className="tag">{meta.wordCount} 词</span>
-            <span className="tag">换词库</span>
-          </div>
-          <div className="tiny muted" style={{ marginTop: 6 }}>
-            已掌握 {learned} 词 · 再背 {toNextLevel} 词解锁下一关 · 共{' '}
-            {Math.ceil(meta.wordCount / Math.max(1, settings.unitSize))} 关
-          </div>
-          <div className="progress-track">
-            <div
-              className="progress-fill"
-              style={{ width: `${Math.round((learned / meta.wordCount) * 100)}%` }}
-            />
-          </div>
-        </button>
-      )}
     </div>
   )
 }

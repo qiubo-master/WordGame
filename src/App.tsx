@@ -17,11 +17,13 @@ import { BagView } from './components/BagView'
 import { ShopView } from './components/ShopView'
 import { AdminView } from './components/AdminView'
 import { MistakeBook } from './components/MistakeBook'
+import { LeaderboardView } from './components/LeaderboardView'
 
 const TABS: { key: ViewName; label: string; icon: string }[] = [
   { key: 'home', label: '首页', icon: 'home' },
   { key: 'levels', label: '闯关', icon: 'flag' },
   { key: 'mistakes', label: '错词', icon: 'book' },
+  { key: 'leaderboard', label: '排行榜', icon: 'trophy' },
   { key: 'bag', label: '背包', icon: 'bag' },
   { key: 'shop', label: '商城', icon: 'shop' },
 ]
@@ -161,6 +163,7 @@ export default function App() {
       )}
       {view === 'bag' && <BagView />}
       {view === 'shop' && <ShopView />}
+      {view === 'leaderboard' && <LeaderboardView />}
 
       <nav className="tabbar">
         {TABS.map((t) => (

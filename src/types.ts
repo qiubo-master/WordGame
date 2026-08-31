@@ -166,6 +166,15 @@ export interface AuthInfo {
   phone: string
 }
 
+export interface LeaderboardEntry {
+  rank: number
+  userId: string
+  username: string
+  todayCount: number
+  totalCount: number
+  isMe: boolean
+}
+
 export interface AppState {
   version: number
   users: Record<string, UserData>
@@ -185,6 +194,7 @@ export type ViewName =
   | 'shop'
   | 'admin'
   | 'mistakes'
+  | 'leaderboard'
 
 export interface GameSettings {
   dailyNewLimit: number

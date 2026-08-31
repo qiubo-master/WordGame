@@ -145,6 +145,11 @@ button {
   color: var(--faint);
 }
 
+.tabbar:has(.tab:nth-child(6)) .tab {
+  font-size: 10px;
+  min-width: 0;
+}
+
 .tab.active {
   color: var(--primary);
   font-weight: 500;
@@ -337,6 +342,71 @@ button {
   color: var(--muted);
   margin-top: 2px;
 }
+
+.current-book-card {
+  padding: 14px;
+}
+
+.current-book-summary {
+  width: 100%;
+  text-align: left;
+  padding-bottom: 12px;
+}
+
+.leaderboard-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(186, 117, 23, .22);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--gold-soft), #fff);
+  box-shadow: var(--shadow);
+}
+
+.leaderboard-hero > div { flex: 1; min-width: 0; }
+.leaderboard-hero .tag { background: #fff; }
+
+.leaderboard-head,
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 72px;
+  align-items: center;
+  gap: 6px;
+}
+
+.leaderboard-head {
+  padding: 0 14px 7px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+
+.leaderboard-head span:first-child { text-align: left; }
+
+.leaderboard-row {
+  min-height: 58px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.leaderboard-row.me {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.leaderboard-user { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.leaderboard-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; }
+.leaderboard-row > strong { text-align: right; color: var(--primary); font-size: 16px; }
+.leaderboard-row > strong:last-child { color: var(--success); }
+.leaderboard-row small { color: var(--muted); font-size: 10px; font-weight: 400; }
+.rank { width: 28px; text-align: center; flex: 0 0 auto; font-size: 14px; color: var(--muted); }
+.rank-1, .rank-2, .rank-3 { font-size: 21px; }
 
 /* ---------- books ---------- */
 .book-item {
