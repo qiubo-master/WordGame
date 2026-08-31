@@ -180,23 +180,37 @@ export const useAppStore = create<AppStore>()(
             typeof remoteUser.dailyStats === 'object'
           ) {
             const id = remoteUser.profile.id
-            const userOrder = s.userOrder.includes(id) ? s.userOrder : [...s.userOrder, id]
+            // 云端账号不进 userOrder：退出后不应出现在"选择学习者"列表
+            const userOrder = s.userOrder.filter((x) => x !== id)
             return { auth, users: { ...s.users, [id]: remoteUser }, userOrder, currentUserId: id }
           }
           // 云端无存档或数据不完整：本地游客进度并入账号；本地也空则按用户名建新学习者
-          if (s.currentUserId && s.users[s.currentUserId]) return { auth }
+          if (s.currentUserId && s.users[s.currentUserId]) {
+            // 本地游客升格为云端账号 → 移出 userOrder（退出后不再作为可切换的本地学习者）
+            return { auth, userOrder: s.userOrder.filter((x) => x !== s.currentUserId) }
+          }
           const user = makeUser(auth.username, AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)])
           return {
             auth,
             users: { ...s.users, [user.profile.id]: user },
-            userOrder: [...s.userOrder, user.profile.id],
+            userOrder: s.userOrder,
             currentUserId: user.profile.id,
           }
         }),
 
       signOut: () => {
         saveAuth(null)
-        set({ auth: null, currentUserId: null })
+        set((s) => {
+          // 仅云端会话（auth 非空）时清理：把当前云账号 user 移出"选择学习者"列表，
+          // 避免退出后仍显示该账号、点击又以游客身份进入。本地游客不受影响。
+          if (!s.auth) return { currentUserId: null }
+          const id = s.currentUserId
+          return {
+            auth: null,
+            currentUserId: null,
+            userOrder: id ? s.userOrder.filter((x) => x !== id) : s.userOrder,
+          }
+        })
       },
 
       removeUser: (userId) =>

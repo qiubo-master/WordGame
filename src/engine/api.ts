@@ -2,7 +2,9 @@ import type { AuthInfo } from '../types'
 
 // 生产环境（CloudBase）通过 VITE_API_BASE 指向云函数 HTTP 域名；
 // 本地留空，则请求落到 /api，由 vite.config.ts 的 proxy 转发到本地 8787 后端。
-const API_BASE: string = import.meta.env.VITE_API_BASE || ''
+// 非 Vite 环境（如 smoke 测试的 esbuild bundle）import.meta.env 不存在，安全降级为 ''。
+const API_BASE: string =
+  ((import.meta as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE) || ''
 
 const AUTH_KEY = 'wq-auth'
 
