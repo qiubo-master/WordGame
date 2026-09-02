@@ -6,6 +6,10 @@ import type { AuthInfo, LeaderboardEntry } from '../types'
 const API_BASE: string =
   ((import.meta as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE) || ''
 
+export function apiSpeechUrl(text: string): string {
+  return `${API_BASE}/api/speech?word=${encodeURIComponent(text.trim())}`
+}
+
 const AUTH_KEY = 'wq-auth'
 
 function friendlyApiError(message: unknown, status: number): string {

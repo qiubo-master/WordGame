@@ -34,6 +34,29 @@ function authRequired(req, res, next) {
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
+app.get('/api/speech', async (req, res) => {
+  const word = String(req.query.word || '').trim()
+  if (!/^[A-Za-z][A-Za-z .'-]{0,79}$/.test(word)) {
+    return res.status(400).json({ error: '单词格式不正确' })
+  }
+  try {
+    const upstream = await fetch(
+      `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`,
+      { signal: AbortSignal.timeout(6000) },
+    )
+    if (!upstream.ok) return res.status(502).json({ error: '发音服务暂时不可用' })
+    const data = Buffer.from(await upstream.arrayBuffer())
+    if (!data.length || data.length > 500_000) {
+      return res.status(502).json({ error: '发音音频异常' })
+    }
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'audio/mpeg')
+    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable')
+    return res.send(data)
+  } catch {
+    return res.status(502).json({ error: '发音服务连接失败，请稍后再试' })
+  }
+})
+
 app.get('/api/check', (req, res) => {
   const { username, phone } = req.query
   const out = { usernameTaken: false, phoneTaken: false }

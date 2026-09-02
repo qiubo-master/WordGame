@@ -11,6 +11,7 @@
  *   GET  /api/save       (需 Authorization: Bearer <token>)
  *   PUT  /api/save       { data }       (需 Authorization: Bearer <token>)
  *   GET  /api/leaderboard               (需 Authorization: Bearer <token>)
+ *   GET  /api/speech ?word=apple         (安卓/学习机英文发音代理)
  */
 
 const cloudbase = require('@cloudbase/node-sdk')
@@ -56,6 +57,21 @@ function json(status, obj, extraHeaders) {
   }
 }
 
+function binary(status, body, contentType, extraHeaders) {
+  return {
+    statusCode: status,
+    headers: Object.assign(
+      {
+        'Content-Type': contentType,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      },
+      extraHeaders || {},
+    ),
+    body,
+  }
+}
+
 function fail(message) {
   const detail = String(message || '')
   if (/database|collection|comparison command|field name/i.test(detail)) {
@@ -93,6 +109,7 @@ function routeKey(path) {
   if (path.endsWith('/check')) return 'check'
   if (path.endsWith('/save')) return 'save'
   if (path.endsWith('/leaderboard')) return 'leaderboard'
+  if (path.endsWith('/speech')) return 'speech'
   if (path.endsWith('/health')) return 'health'
   return null
 }
@@ -323,6 +340,26 @@ async function handleHealth() {
   }
 }
 
+async function handleSpeech(query) {
+  const word = String(query.word || '').trim()
+  if (!/^[A-Za-z][A-Za-z .'-]{0,79}$/.test(word)) {
+    return json(400, { error: '单词格式不正确' })
+  }
+  const upstream = await fetch(
+    `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`,
+    { signal: AbortSignal.timeout(6000) },
+  )
+  if (!upstream.ok) return json(502, { error: '发音服务暂时不可用' })
+  const data = Buffer.from(await upstream.arrayBuffer())
+  if (!data.length || data.length > 500_000) {
+    return json(502, { error: '发音音频异常' })
+  }
+  return binary(200, data, upstream.headers.get('content-type') || 'audio/mpeg', {
+    'Cache-Control': 'public, max-age=2592000, immutable',
+    'Content-Length': String(data.length),
+  })
+}
+
 async function dispatch({ method = 'GET', path = '/', headers = {}, query = {}, body = {} }) {
   try {
     method = method.toUpperCase()
@@ -334,6 +371,10 @@ async function dispatch({ method = 'GET', path = '/', headers = {}, query = {}, 
     const route = routeKey(path)
 
     if (route === 'health') return await handleHealth()
+    if (route === 'speech') {
+      if (method !== 'GET') return json(405, { error: '请求方式不支持' })
+      return await handleSpeech(query)
+    }
     if (route === 'check') return await handleCheck(query)
     if (route === 'register') {
       if (method !== 'POST') return json(405, { error: 'method not allowed' })
