@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCurrentUser, useAppStore, useSettings } from '../store/useAppStore'
 import { getBookMeta, loadBookWords } from '../data'
-import { generateLevels, parseLevelSelection, wordsForSublevel } from '../engine/levels'
+import { generateLevels, isLevelSelectionCleared, parseLevelSelection, wordsForSublevel } from '../engine/levels'
 import { aggregateEffects, describeEffects, getItem, RARITY_COLOR } from '../engine/items'
 import { coinsForGame } from '../engine/economy'
 import { speak } from '../engine/speech'
@@ -28,6 +28,7 @@ export function GameView({ levelId, onExit }: Props) {
   const markWrong = useAppStore((s) => s.markWrong)
   const markRight = useAppStore((s) => s.markRight)
   const settings = useSettings()
+  const replayRun = useRef(!!user && isLevelSelectionCleared(user.levelProgress, levelId))
   const bookId = user?.activeBookId ?? null
   const meta = bookId ? getBookMeta(bookId) : undefined
   const [bookWords, setBookWords] = useState<Word[]>([])
@@ -159,9 +160,9 @@ export function GameView({ levelId, onExit }: Props) {
   const finish = useCallback(() => {
     if (!level || !user || !meta) return
     const passed = score >= level.targetScore
-    const coins = coinsForGame(settings, score, wrong, passed)
+    const coins = coinsForGame(settings, score, wrong, passed, replayRun.current)
     recordGameResult({
-      levelId: level.id,
+      levelId,
       bookId: meta.id,
       score,
       correct,
@@ -173,7 +174,7 @@ export function GameView({ levelId, onExit }: Props) {
       playedAt: Date.now(),
       targetScore: level.targetScore,
     })
-  }, [level, user, meta, score, correct, wrong, maxCombo, recordGameResult])
+  }, [level, levelId, user, meta, score, correct, wrong, maxCombo, recordGameResult])
 
   useEffect(() => {
     if (phase === 'over') {
@@ -309,6 +310,7 @@ export function GameView({ levelId, onExit }: Props) {
             className="btn"
             onClick={() => {
               unlockAudio()
+              replayRun.current = !!user && isLevelSelectionCleared(user.levelProgress, levelId)
               startedAt.current = Date.now()
               setPhase('playing')
               setWave((w) => w + 1)
@@ -323,7 +325,7 @@ export function GameView({ levelId, onExit }: Props) {
 
   if (phase === 'over') {
     const passed = score >= level.targetScore
-    const coins = coinsForGame(settings, score, wrong, passed)
+    const coins = coinsForGame(settings, score, wrong, passed, replayRun.current)
     return (
       <div className="result-panel">
         <div className="tiny muted">{level.name}</div>
@@ -395,6 +397,7 @@ export function GameView({ levelId, onExit }: Props) {
           <button
             className="btn"
             onClick={() => {
+              replayRun.current = !!user && isLevelSelectionCleared(user.levelProgress, levelId)
               setScore(0)
               setCombo(0)
               setCorrect(0)

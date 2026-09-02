@@ -21,13 +21,18 @@ export function coinsForGame(
   score: number,
   wrong: number,
   passed: boolean,
+  replay = false,
 ): number {
   if (s.coinScoreDivisor <= 0) return 0
-  if (!passed) return applyMult(s, Math.floor(score / s.coinScoreDivisor / 2))
+  if (!passed) {
+    const participation = applyMult(s, Math.floor(score / s.coinScoreDivisor / 2))
+    return replay ? Math.min(10, participation) : participation
+  }
 
   const byScore = Math.floor(score / s.coinScoreDivisor)
   const perfect = wrong === 0 ? s.perfectBonus : 0
   const total = s.coinGameBase + byScore + perfect
   const capped = s.gameCoinCap > 0 ? Math.min(total, s.gameCoinCap + perfect) : total
-  return applyMult(s, capped)
+  const reward = applyMult(s, capped)
+  return replay ? Math.min(10, reward) : reward
 }

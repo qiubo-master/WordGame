@@ -1175,15 +1175,18 @@ button {
 
 /* ---------- 关卡入口双游戏 ---------- */
 .level-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
 
 .mini-btn.battle { color: #7b4c00; border-color: rgba(218,156,28,.45); background: linear-gradient(135deg,#fff8dc,#ffe7a1); }
 .mini-btn.garden { color:#27641f;border-color:rgba(68,145,50,.4);background:linear-gradient(135deg,#eefbe8,#cceebc); }
-.mini-btn.dino{flex-basis:100%;color:#8a321f;border-color:rgba(173,73,45,.4);background:linear-gradient(135deg,#fff0d2,#f5c58e)}.mini-btn.dino:disabled{background:#eee9df;color:#9b9488}
-.sublevel-track{display:flex;align-items:center;gap:5px;margin-top:8px}.sublevel-track span{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:9px;background:#eceae4;color:#9a978f;border:1px solid var(--border)}.sublevel-track span.open{background:linear-gradient(135deg,#54a96f,#82c95d);color:#fff;border-color:#4b9b58;box-shadow:0 2px 6px rgba(60,137,72,.18)}.sublevel-track b{margin-left:3px;padding:3px 7px;border-radius:999px;background:#eee9df;color:#a29a8d;font-size:9px}.sublevel-track b.open{background:linear-gradient(135deg,#e9863f,#bc3e28);color:#fff;animation:boss-unlocked 1.4s ease-in-out infinite}@keyframes boss-unlocked{50%{transform:scale(1.06);box-shadow:0 0 0 4px rgba(203,75,39,.12)}}
+.mini-btn.dino{grid-column:1/-1;color:#8a321f;border-color:rgba(173,73,45,.4);background:linear-gradient(135deg,#fff0d2,#f5c58e)}.mini-btn.dino:disabled{background:#eee9df;color:#9b9488}
+.mini-btn.passed{color:#087158;border-color:rgba(29,158,117,.45);background:linear-gradient(135deg,#effcf6,#d5f5e5)}
+.sublevel-track{display:flex;align-items:center;gap:5px;margin-top:8px}.sublevel-track span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:10px;background:#eceae4;color:#77736c;border:1px solid var(--border)}.sublevel-track span.open{background:linear-gradient(135deg,#4e94d6,#2468ad);color:#fff;border-color:#2468ad;box-shadow:0 2px 6px rgba(36,104,173,.18)}.sublevel-track span.passed{background:linear-gradient(135deg,#54a96f,#82c95d);color:#fff;border-color:#4b9b58}.sublevel-track b{margin-left:3px;padding:4px 8px;border-radius:999px;background:#eee9df;color:#77736c;font-size:9px}.sublevel-track b.open{background:linear-gradient(135deg,#e9863f,#bc3e28);color:#fff;animation:boss-unlocked 1.4s ease-in-out infinite}.sublevel-track b.passed{background:linear-gradient(135deg,#54a96f,#278b5f);color:#fff}@keyframes boss-unlocked{50%{transform:scale(1.06);box-shadow:0 0 0 4px rgba(203,75,39,.12)}}
+.replay-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:24px;background:rgba(27,35,45,.58);backdrop-filter:blur(4px)}.replay-dialog{width:min(100%,360px);padding:24px 20px;border-radius:22px;background:linear-gradient(155deg,#fffdf5,#edf7ff);border:1px solid rgba(255,255,255,.75);box-shadow:0 22px 70px rgba(14,34,58,.3);text-align:center;animation:unlock-card-in .3s ease-out}.replay-icon{font-size:46px}.replay-dialog h3{margin:7px 0 6px}.replay-dialog p{margin:0 0 18px;color:var(--muted);font-size:14px;line-height:1.65}.replay-dialog .btn{flex:1}
 
 .shop-tabs{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 12px;scrollbar-width:none}.shop-tabs button{white-space:nowrap;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.75);border:1px solid var(--border);font-size:12px;color:var(--muted)}.shop-tabs button.active{background:var(--primary);color:#fff;border-color:var(--primary)}.game-tag{color:var(--primary)}
 .item-card.rarity-legendary{border-color:rgba(224,105,24,.42);background:linear-gradient(110deg,#fff,#fff3e5)}.item-card.rarity-supreme{border-color:rgba(139,43,184,.42);background:linear-gradient(110deg,#fff,#f8eaff)}.item-card.rarity-mythic{border-color:rgba(210,15,115,.48);background:linear-gradient(110deg,#fff5fb,#fff,#f0efff);box-shadow:0 4px 18px rgba(210,15,115,.1);animation:mythic-glow 2.5s ease-in-out infinite}@keyframes mythic-glow{50%{box-shadow:0 5px 24px rgba(210,15,115,.22)}}

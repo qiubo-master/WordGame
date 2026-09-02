@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getBookMeta, loadBookWords } from '../data'
 import { coinsForGame } from '../engine/economy'
-import { generateLevels, parseLevelSelection, wordsForSublevel } from '../engine/levels'
+import { generateLevels, isLevelSelectionCleared, parseLevelSelection, wordsForSublevel } from '../engine/levels'
 import { shuffle } from '../engine/random'
 import { SFX, unlockAudio } from '../engine/sound'
 import { speak } from '../engine/speech'
@@ -24,6 +24,7 @@ export function BattleView({ levelId, onExit }: Props) {
   const selection = useMemo(() => parseLevelSelection(levelId), [levelId])
   const user = useCurrentUser()
   const settings = useSettings()
+  const replayRun = useRef(!!user && isLevelSelectionCleared(user.levelProgress, levelId))
   const recordGameResult = useAppStore((s) => s.recordGameResult)
   const markWrong = useAppStore((s) => s.markWrong)
   const markRight = useAppStore((s) => s.markRight)
@@ -70,6 +71,7 @@ export function BattleView({ levelId, onExit }: Props) {
 
   const begin = () => {
     unlockAudio()
+    replayRun.current = !!user && isLevelSelectionCleared(user.levelProgress, levelId)
     recorded.current = false
     startedAt.current = Date.now()
     setSoldiers([]); setPlayerBaseHp(settings.battlePlayerHp); setEnemyBaseHp(settings.battleEnemyHp)
@@ -121,10 +123,10 @@ export function BattleView({ levelId, onExit }: Props) {
     if ((phase !== 'won' && phase !== 'lost') || recorded.current || !level || !meta) return
     recorded.current = true
     const passed = phase === 'won'
-    recordGameResult({ levelId: level.id, bookId: meta.id, score, correct, wrong, maxCombo,
-      durationMs: Date.now() - startedAt.current, coinsEarned: coinsForGame(settings, score, wrong, passed),
+    recordGameResult({ levelId, bookId: meta.id, score, correct, wrong, maxCombo,
+      durationMs: Date.now() - startedAt.current, coinsEarned: coinsForGame(settings, score, wrong, passed, replayRun.current),
       passed, playedAt: Date.now(), targetScore: level.targetScore })
-  }, [phase, level, meta, score, correct, wrong, maxCombo, recordGameResult, settings])
+  }, [phase, level, levelId, meta, score, correct, wrong, maxCombo, recordGameResult, settings])
 
   const answer = (choice: Word) => {
     if (!current || answered) return
@@ -153,7 +155,7 @@ export function BattleView({ levelId, onExit }: Props) {
   </div>
 
   if (phase === 'won' || phase === 'lost') {
-    const won = phase === 'won'; const coins = coinsForGame(settings, score, wrong, won)
+    const won = phase === 'won'; const coins = coinsForGame(settings, score, wrong, won, replayRun.current)
     return <div className={`battle-result ${won ? 'victory' : 'defeat'}`}>
       <div className="result-crown">{won ? '🏆' : '🛡️'}</div><h2>{won ? '攻城胜利！' : '基地失守'}</h2>
       <p>{won ? '黄金军团摧毁了蓝翼基地' : '多答对几题，召唤更多小兵再战'}</p>

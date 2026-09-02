@@ -263,13 +263,36 @@ try {
         wrongCount: 0,
       }
     }
-    __store.setState({ users: { ...s.users, [id]: { ...u, wordStates: ws } } })
+    __store.setState({
+      users: {
+        ...s.users,
+        [id]: {
+          ...u,
+          wordStates: ws,
+          levelProgress: {
+            ...u.levelProgress,
+            'junior-L1::1': {
+              levelId: 'junior-L1::1',
+              bookId: 'junior',
+              status: 'cleared',
+              bestScore: 120,
+              stars: 1,
+              clearedAt: Date.now(),
+            },
+          },
+        },
+      },
+    })
   })
 
   await clickText('首页')
   await clickText('闯关')
   const lv1 = [...document.querySelectorAll('.level-item')][0]
   check('掌握 60 词后第 1 关解锁', lv1 && !lv1.disabled)
+  const matchEntry = [...lv1.querySelectorAll('button')].find((button) => button.textContent.includes('消消乐'))
+  const battleEntry = [...lv1.querySelectorAll('button')].find((button) => button.textContent.includes('单词兵团'))
+  check('第 1 小关通关后第 2 小关可挑战', matchEntry && !matchEntry.disabled)
+  check('第 2 小关未通关时第 3 小关保持锁定', battleEntry?.disabled === true)
 
   // ---- 装备开局消耗 + 消消乐（限时）----
   await act(async () => {
@@ -323,7 +346,11 @@ try {
   check('通关后金币增加', cur().wallet.coins > coinsBeforeGame, `${coinsBeforeGame} -> ${cur().wallet.coins}`)
 
   await clickText('返回关卡')
+  const battleAfterMatch = [...document.querySelectorAll('.level-item button')].find((button) => button.textContent.includes('单词兵团'))
+  check('第 2 小关通关后第 3 小关解锁', battleAfterMatch && !battleAfterMatch.disabled)
   await clickText('打地鼠')
+  check('已通关游戏弹出重玩提示', text().includes('本局最多获得 10 个金币'))
+  await clickText('继续玩')
   check('进入游戏准备页', text().includes('开始挑战'))
   check('准备页显示目标分', text().includes('120 分'))
 

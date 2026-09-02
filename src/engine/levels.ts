@@ -1,4 +1,4 @@
-import type { GameLevel, GameSettings, UserWordState, Word, WordBook } from '../types'
+import type { GameLevel, GameSettings, LevelProgress, UserWordState, Word, WordBook } from '../types'
 import { targetScoreFor } from './settings'
 
 export function parseLevelSelection(levelId: string): { baseLevelId: string; sublevel: number | null } {
@@ -14,6 +14,16 @@ export function wordsForSublevel(wordIds: string[], sublevel: number | null): st
   if (sublevel === null) return wordIds
   const start = (sublevel - 1) * 10
   return wordIds.slice(start, start + 10)
+}
+
+export function isLevelSelectionCleared(
+  progress: Record<string, LevelProgress>,
+  levelId: string,
+): boolean {
+  if (progress[levelId]?.status === 'cleared') return true
+  const selection = parseLevelSelection(levelId)
+  // 兼容旧版：旧版只保存大关 ID，将其视为第 1 小关成绩，不改动历史数据。
+  return selection.sublevel === 1 && progress[selection.baseLevelId]?.status === 'cleared'
 }
 
 export function generateLevels(book: WordBook, s: GameSettings): GameLevel[] {

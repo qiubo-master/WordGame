@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCurrentUser, useAppStore, useSettings } from '../store/useAppStore'
 import { getBookMeta, loadBookWords } from '../data'
-import { generateLevels, parseLevelSelection, wordsForSublevel } from '../engine/levels'
+import { generateLevels, isLevelSelectionCleared, parseLevelSelection, wordsForSublevel } from '../engine/levels'
 import {
   aggregateEffects,
   describeEffects,
@@ -39,6 +39,7 @@ export function MatchView({ levelId, onExit }: Props) {
   const markRight = useAppStore((s) => s.markRight)
   const consumeEquipped = useAppStore((s) => s.consumeEquipped)
   const settings = useSettings()
+  const replayRun = useRef(!!user && isLevelSelectionCleared(user.levelProgress, levelId))
   const bookId = user?.activeBookId ?? null
   const meta = bookId ? getBookMeta(bookId) : undefined
   const [bookWords, setBookWords] = useState<Word[]>([])
@@ -122,6 +123,7 @@ export function MatchView({ levelId, onExit }: Props) {
 
   const begin = () => {
     unlockAudio()
+    replayRun.current = !!user && isLevelSelectionCleared(user.levelProgress, levelId)
     consumeEquipped()
     setSessionEffects(effects)
     start()
@@ -194,9 +196,9 @@ export function MatchView({ levelId, onExit }: Props) {
     () => {
       if (!level || !user || !meta) return
       const passed = score >= target
-      const coins = coinsForGame(settings, score, wrong, passed)
+      const coins = coinsForGame(settings, score, wrong, passed, replayRun.current)
       recordGameResult({
-        levelId: level.id,
+        levelId,
         bookId: meta.id,
         score,
         correct: matchedCount,
@@ -210,7 +212,7 @@ export function MatchView({ levelId, onExit }: Props) {
       })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [level, user, meta, score, matchedCount, wrong, maxCombo],
+    [level, levelId, user, meta, score, matchedCount, wrong, maxCombo],
   )
 
   useEffect(() => {
@@ -306,7 +308,7 @@ export function MatchView({ levelId, onExit }: Props) {
 
   if (phase === 'over') {
     const passed = score >= target
-    const coins = coinsForGame(settings, score, wrong, passed)
+    const coins = coinsForGame(settings, score, wrong, passed, replayRun.current)
     return (
       <div className="result-panel">
         <div className="tiny muted">{level.name} · 消消乐</div>
