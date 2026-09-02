@@ -344,6 +344,10 @@ try {
   }
   check('消消乐可通关', text().includes('通关成功'))
   check('通关后金币增加', cur().wallet.coins > coinsBeforeGame, `${coinsBeforeGame} -> ${cur().wallet.coins}`)
+  await clickText('再来一局')
+  check('结算页再来一局弹出重玩提示', text().includes('本局最多获得 10 个金币'))
+  await clickText('不玩了')
+  check('不玩了仍停留在结算页', text().includes('通关成功'))
 
   await clickText('返回关卡')
   const battleAfterMatch = [...document.querySelectorAll('.level-item button')].find((button) => button.textContent.includes('单词兵团'))

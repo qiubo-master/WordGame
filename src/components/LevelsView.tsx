@@ -3,6 +3,7 @@ import { useCurrentUser, useSettings } from '../store/useAppStore'
 import { getBookMeta, loadBookWords } from '../data'
 import { computeLearnedCount, generateLevels } from '../engine/levels'
 import type { GameType, ViewName, Word } from '../types'
+import { ReplayConfirm } from './ReplayConfirm'
 
 interface Props {
   onNavigate: (v: ViewName) => void
@@ -15,7 +16,7 @@ export function LevelsView({ onNavigate, onPlay, onStudyWords }: Props) {
   const settings = useSettings()
   const meta = user?.activeBookId ? getBookMeta(user.activeBookId) : undefined
   const [bookWords, setBookWords] = useState<Word[]>([])
-  const [replayConfirm, setReplayConfirm] = useState<{ levelId: string; gameType: GameType; label: string } | null>(null)
+  const [replayConfirm, setReplayConfirm] = useState<{ levelId: string; gameType: GameType } | null>(null)
   useEffect(() => {
     if (!user?.activeBookId) {
       setBookWords([])
@@ -113,7 +114,6 @@ export function LevelsView({ onNavigate, onPlay, onStudyWords }: Props) {
             setReplayConfirm({
               levelId: selectedLevelId,
               gameType,
-              label: `${lv.index + 1}-${index + 1} ${names[index]}`,
             })
             return
           }
@@ -190,28 +190,15 @@ export function LevelsView({ onNavigate, onPlay, onStudyWords }: Props) {
       })}
 
       {replayConfirm && (
-        <div className="replay-overlay" onClick={() => setReplayConfirm(null)}>
-          <div className="replay-dialog" onClick={(event) => event.stopPropagation()}>
-            <div className="replay-icon">🏆</div>
-            <h3>这个游戏已经通关</h3>
-            <p>
-              {replayConfirm.label} 已经通关，继续玩仍会获得金币，但本局最多获得 10 个金币。还要继续吗？
-            </p>
-            <div className="btn-row">
-              <button className="btn ghost" onClick={() => setReplayConfirm(null)}>不玩了</button>
-              <button
-                className="btn"
-                onClick={() => {
-                  const next = replayConfirm
-                  setReplayConfirm(null)
-                  onPlay(next.levelId, next.gameType)
-                }}
-              >
-                继续玩
-              </button>
-            </div>
-          </div>
-        </div>
+        <ReplayConfirm
+          open
+          onCancel={() => setReplayConfirm(null)}
+          onContinue={() => {
+            const next = replayConfirm
+            setReplayConfirm(null)
+            onPlay(next.levelId, next.gameType)
+          }}
+        />
       )}
     </div>
   )

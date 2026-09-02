@@ -7,6 +7,7 @@ import { SFX, unlockAudio } from '../engine/sound'
 import { speak } from '../engine/speech'
 import { useAppStore, useCurrentUser, useSettings } from '../store/useAppStore'
 import type { Word } from '../types'
+import { ReplayConfirm } from './ReplayConfirm'
 
 interface Props { levelId: string; onExit: () => void }
 interface Soldier { id: number; side: 'player' | 'enemy'; x: number; hp: number; maxHp: number }
@@ -58,6 +59,7 @@ export function BattleView({ levelId, onExit }: Props) {
   const [questionIndex, setQuestionIndex] = useState(0)
   const [answered, setAnswered] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  const [showReplayConfirm, setShowReplayConfirm] = useState(false)
   const seq = useRef(0)
   const startedAt = useRef(Date.now())
   const recorded = useRef(false)
@@ -160,7 +162,8 @@ export function BattleView({ levelId, onExit }: Props) {
       <div className="result-crown">{won ? '🏆' : '🛡️'}</div><h2>{won ? '攻城胜利！' : '基地失守'}</h2>
       <p>{won ? '黄金军团摧毁了蓝翼基地' : '多答对几题，召唤更多小兵再战'}</p>
       <div className="battle-result-score">{score} 分 · +{coins} 金币</div>
-      <div className="btn-row"><button className="btn ghost" onClick={onExit}>返回</button><button className="btn" onClick={begin}>再战一局</button></div>
+      <div className="btn-row"><button className="btn ghost" onClick={onExit}>返回</button><button className="btn" onClick={() => user && isLevelSelectionCleared(user.levelProgress, levelId) ? setShowReplayConfirm(true) : begin()}>再战一局</button></div>
+      <ReplayConfirm open={showReplayConfirm} onCancel={() => setShowReplayConfirm(false)} onContinue={() => { setShowReplayConfirm(false); begin() }} />
     </div>
   }
 

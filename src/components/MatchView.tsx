@@ -17,6 +17,7 @@ import { SFX, unlockAudio } from '../engine/sound'
 import type { Word } from '../types'
 import { Icon } from './Icon'
 import { toast } from './Toast'
+import { ReplayConfirm } from './ReplayConfirm'
 
 interface Props {
   levelId: string
@@ -91,6 +92,7 @@ export function MatchView({ levelId, onExit }: Props) {
   const [flipped, setFlipped] = useState<string[]>([])
   const [resolving, setResolving] = useState(false)
   const [lastReward, setLastReward] = useState<number | null>(null)
+  const [showReplayConfirm, setShowReplayConfirm] = useState(false)
   const shieldRef = useRef(eff.shield)
   const resolveTimerRef = useRef<number | null>(null)
   const startedAt = useRef(Date.now())
@@ -353,10 +355,11 @@ export function MatchView({ levelId, onExit }: Props) {
           <button className="btn ghost" onClick={onExit}>
             返回关卡
           </button>
-          <button className="btn" onClick={begin}>
+          <button className="btn" onClick={() => user && isLevelSelectionCleared(user.levelProgress, levelId) ? setShowReplayConfirm(true) : begin()}>
             再来一局
           </button>
         </div>
+        <ReplayConfirm open={showReplayConfirm} onCancel={() => setShowReplayConfirm(false)} onContinue={() => { setShowReplayConfirm(false); begin() }} />
       </div>
     )
   }

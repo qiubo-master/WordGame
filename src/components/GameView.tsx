@@ -10,6 +10,7 @@ import { SFX, unlockAudio } from '../engine/sound'
 import type { Word } from '../types'
 import { Icon } from './Icon'
 import { toast } from './Toast'
+import { ReplayConfirm } from './ReplayConfirm'
 
 interface Props {
   levelId: string
@@ -83,6 +84,7 @@ export function GameView({ levelId, onExit }: Props) {
   const [flash, setFlash] = useState<{ hole: number; kind: 'hit' | 'miss' } | null>(null)
   const [floaters, setFloaters] = useState<{ id: number; hole: number; text: string }[]>([])
   const [pulse, setPulse] = useState(0)
+  const [showReplayConfirm, setShowReplayConfirm] = useState(false)
 
   const targetRef = useRef<Word | null>(null)
   const startedAt = useRef(Date.now())
@@ -219,6 +221,21 @@ export function GameView({ levelId, onExit }: Props) {
       markWrong(slot.word.id, bookId ?? slot.word.id.split('-')[0])
       window.setTimeout(() => setFlash(null), 340)
     }
+  }
+
+  const restart = () => {
+    replayRun.current = !!user && isLevelSelectionCleared(user.levelProgress, levelId)
+    setScore(0)
+    setCombo(0)
+    setCorrect(0)
+    setWrong(0)
+    setMaxCombo(0)
+    setShield(effects.shield)
+    setTimeLeft(totalTime)
+    setActive([])
+    startedAt.current = Date.now()
+    setPhase('playing')
+    setWave((w) => w + 1)
   }
 
   if (!meta) {
@@ -397,23 +414,21 @@ export function GameView({ levelId, onExit }: Props) {
           <button
             className="btn"
             onClick={() => {
-              replayRun.current = !!user && isLevelSelectionCleared(user.levelProgress, levelId)
-              setScore(0)
-              setCombo(0)
-              setCorrect(0)
-              setWrong(0)
-              setMaxCombo(0)
-              setShield(effects.shield)
-              setTimeLeft(totalTime)
-              setActive([])
-              startedAt.current = Date.now()
-              setPhase('playing')
-              setWave((w) => w + 1)
+              if (user && isLevelSelectionCleared(user.levelProgress, levelId)) setShowReplayConfirm(true)
+              else restart()
             }}
           >
             再来一局
           </button>
         </div>
+        <ReplayConfirm
+          open={showReplayConfirm}
+          onCancel={() => setShowReplayConfirm(false)}
+          onContinue={() => {
+            setShowReplayConfirm(false)
+            restart()
+          }}
+        />
       </div>
     )
   }
