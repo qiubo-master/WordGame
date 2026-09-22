@@ -90,6 +90,8 @@ export function LevelsView({ onNavigate, onPlay, onStudyWords }: Props) {
         )
         const unlocked = available[0]
         const cleared = passed.every(Boolean)
+        const minePassed = user.levelProgress[`${lv.id}::6`]?.status === 'cleared'
+        const mineAvailable = passed[4]
         const status = cleared ? 'cleared' : unlocked ? 'unlocked' : 'locked'
         const allProgress = [legacyProg, ...[1, 2, 3, 4, 5].map((n) => user.levelProgress[`${lv.id}::${n}`])].filter(Boolean)
         const stars = Math.max(0, ...allProgress.map((progress) => progress?.stars ?? 0))
@@ -158,6 +160,9 @@ export function LevelsView({ onNavigate, onPlay, onStudyWords }: Props) {
                 <b className={passed[4] ? 'passed' : available[4] ? 'open' : ''}>
                   {passed[4] ? '✓ Boss' : available[4] ? '🦖 Boss' : '🔒 Boss'}
                 </b>
+                <b className={`mine-stage ${minePassed ? 'passed' : mineAvailable ? 'open' : ''}`}>
+                  {minePassed ? '✓ 矿洞' : mineAvailable ? '⛏️ 矿洞' : '🔒 矿洞'}
+                </b>
               </div>
               {stars > 0 && (
                 <div className="stars">
@@ -177,6 +182,21 @@ export function LevelsView({ onNavigate, onPlay, onStudyWords }: Props) {
                       {buttonLabel(n - 1)}
                     </button>
                   ))}
+                  <button
+                    className={`mini-btn miner${minePassed ? ' passed' : ''}`}
+                    disabled={!mineAvailable}
+                    onClick={() => {
+                      const selectedLevelId = `${lv.id}::6`
+                      if (minePassed) setReplayConfirm({ levelId: selectedLevelId, gameType: 'miner' })
+                      else onPlay(selectedLevelId, 'miner')
+                    }}
+                  >
+                    {minePassed
+                      ? `✓ 金币矿洞 · ${lv.index + 1} 分钟 · 已完成`
+                      : mineAvailable
+                        ? `⛏️ 金币矿洞 · ${lv.index + 1} 分钟 · 未完成`
+                        : '🔒 战胜恐龙后解锁金币矿洞'}
+                  </button>
                 </div>
               )}
             </div>

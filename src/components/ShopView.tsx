@@ -43,7 +43,7 @@ export function ShopView() {
                   {RARITY_LABEL[item.rarity]}
                 </span>
                 <span className="tag game-tag" style={{ marginLeft: 4 }}>
-                  {item.game === 'all' || !item.game ? '全游戏' : item.game === 'whack' ? '打地鼠' : item.game === 'match' ? '消消乐' : item.game === 'battle' ? '单词兵团' : item.game === 'garden' ? '词语保卫战' : '恐龙 Boss'}
+                  {item.game === 'all' || !item.game ? '全游戏' : item.game === 'whack' ? '打地鼠' : item.game === 'match' ? '消消乐' : item.game === 'battle' ? '单词兵团' : item.game === 'garden' ? '词语保卫战' : item.game === 'dino' ? '恐龙 Boss' : '金币矿洞'}
                 </span>
                 {owned > 0 && (
                   <span className="tag" style={{ marginLeft: 4 }}>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAppStore, useCurrentUser } from './store/useAppStore'
-import type { ViewName } from './types'
+import type { GameType, ViewName } from './types'
 import { Icon } from './components/Icon'
 import { ToastHost } from './components/Toast'
 import { UserGate } from './components/UserGate'
@@ -13,6 +13,7 @@ import { MatchView } from './components/MatchView'
 import { BattleView } from './components/BattleView'
 import { GardenView } from './components/GardenView'
 import { DinoView } from './components/DinoView'
+import { MinerView } from './components/MinerView'
 import { BagView } from './components/BagView'
 import { ShopView } from './components/ShopView'
 import { AdminView } from './components/AdminView'
@@ -39,7 +40,7 @@ export default function App() {
 
   const [view, setView] = useState<ViewName>('home')
   const [playingLevel, setPlayingLevel] = useState<string | null>(null)
-  const [playingGameType, setPlayingGameType] = useState<'whack' | 'match' | 'battle' | 'garden' | 'dino'>('whack')
+  const [playingGameType, setPlayingGameType] = useState<GameType>('whack')
   const [adminMode, setAdminMode] = useState(false)
   const [studyFocus, setStudyFocus] = useState<string[] | null>(null)
   const [studyFocusMode, setStudyFocusMode] = useState<'mistakes' | 'level' | null>(null)
@@ -57,7 +58,7 @@ export default function App() {
     setView(v)
   }
 
-  const playLevel = (levelId: string, gameType: 'whack' | 'match' | 'battle' | 'garden' | 'dino') => {
+  const playLevel = (levelId: string, gameType: GameType) => {
     setPlayingGameType(gameType)
     setPlayingLevel(levelId)
   }
@@ -84,7 +85,7 @@ export default function App() {
   }
 
   if (playingLevel) {
-    const Game = playingGameType === 'match' ? MatchView : playingGameType === 'battle' ? BattleView : playingGameType === 'garden' ? GardenView : playingGameType === 'dino' ? DinoView : GameView
+    const Game = playingGameType === 'match' ? MatchView : playingGameType === 'battle' ? BattleView : playingGameType === 'garden' ? GardenView : playingGameType === 'dino' ? DinoView : playingGameType === 'miner' ? MinerView : GameView
     return (
       <div className="app">
         <div className="topbar">

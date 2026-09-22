@@ -9,6 +9,10 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   legendary: '传说',
   supreme: '至尊',
   mythic: '神话',
+  secret: '秘密',
+  celestial: '天体',
+  eternal: '永恒',
+  blackhole: '黑洞',
 }
 
 export const RARITY_COLOR: Record<Rarity, string> = {
@@ -18,6 +22,10 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   legendary: '#9c3d10',
   supreme: '#8b2bb8',
   mythic: '#d20f73',
+  secret: '#087f8c',
+  celestial: '#4169e1',
+  eternal: '#ef8d22',
+  blackhole: '#17122d',
 }
 
 export const ITEM_CATALOG: Item[] = [
@@ -127,6 +135,10 @@ export const ITEM_CATALOG: Item[] = [
   { id:'dino-command', name:'传说巨人军令', icon:'flag', rarity:'legendary', price:1100, effects:[{type:'scoreBonus',value:50},{type:'extraTime',value:30}], desc:'小兵火力 +50%，开局 +3 狗币', game:'dino' },
   { id:'dino-armor', name:'至尊龙鳞堡垒', icon:'shield', rarity:'supreme', price:2200, effects:[{type:'shield',value:4},{type:'scoreBonus',value:75}], desc:'军营生命 +400，小兵火力 +75%', game:'dino' },
   { id:'dino-slayer', name:'神话屠龙圣器', icon:'gem', rarity:'mythic', price:4200, effects:[{type:'scoreBonus',value:120},{type:'extraTime',value:50}], desc:'小兵火力 +120%，开局 +5 狗币', game:'dino' },
+  { id:'secret-compass', name:'秘密星图', icon:'star', rarity:'secret', price:6500, effects:[{type:'scoreBonus',value:135},{type:'comboBonus',value:80}], desc:'全游戏得分 +135%，连击强化 +80%', game:'all' },
+  { id:'celestial-core', name:'天体核心', icon:'gem', rarity:'celestial', price:10000, effects:[{type:'scoreBonus',value:160},{type:'extraTime',value:80}], desc:'全游戏得分 +160%，额外 +80 秒', game:'all' },
+  { id:'eternal-crown', name:'永恒王冠', icon:'star', rarity:'eternal', price:16000, effects:[{type:'scoreBonus',value:200},{type:'shield',value:5}], desc:'全游戏得分 +200%，抵消 5 次错误', game:'all' },
+  { id:'blackhole-orb', name:'黑洞奇点', icon:'gem', rarity:'blackhole', price:25000, effects:[{type:'scoreBonus',value:260},{type:'comboBonus',value:140},{type:'extraTime',value:120}], desc:'全游戏得分 +260%，连击 +140%，额外 +120 秒', game:'all' },
 ]
 
 export interface AggregatedEffects {

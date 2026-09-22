@@ -63,7 +63,17 @@ export interface ItemEffect {
   value: number
 }
 
-export type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'supreme' | 'mythic'
+export type Rarity =
+  | 'common'
+  | 'rare'
+  | 'epic'
+  | 'legendary'
+  | 'supreme'
+  | 'mythic'
+  | 'secret'
+  | 'celestial'
+  | 'eternal'
+  | 'blackhole'
 
 export interface Item {
   id: string
@@ -254,4 +264,4 @@ export interface GameSettings {
   adminPasscode: string
 }
 
-export type GameType = 'whack' | 'match' | 'battle' | 'garden' | 'dino'
+export type GameType = 'whack' | 'match' | 'battle' | 'garden' | 'dino' | 'miner'

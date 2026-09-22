@@ -6,7 +6,7 @@ export function parseLevelSelection(levelId: string): { baseLevelId: string; sub
   const parsed = Number(rawSublevel)
   return {
     baseLevelId,
-    sublevel: Number.isInteger(parsed) && parsed >= 1 && parsed <= 5 ? parsed : null,
+    sublevel: Number.isInteger(parsed) && parsed >= 1 && parsed <= 6 ? parsed : null,
   }
 }
 
