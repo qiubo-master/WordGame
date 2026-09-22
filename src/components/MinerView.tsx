@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { getBookMeta, loadBookWords } from '../data'
 import { generateLevels, isLevelSelectionCleared, parseLevelSelection } from '../engine/levels'
+import { firstMinerTreasureTouched, minerHookPoint } from '../engine/miner'
 import { SFX, unlockAudio } from '../engine/sound'
 import { useAppStore, useCurrentUser, useSettings } from '../store/useAppStore'
 import type { Word } from '../types'
@@ -27,20 +28,6 @@ function makeTreasure(index: number, forcedKind?: TreasureKind): Treasure {
   return { ...TREASURE[kind], id: `${Date.now()}-${index}-${Math.random()}`, x: Math.max(7, Math.min(93, baseX + Math.random() * 8 - 4)), y: Math.max(35, Math.min(90, baseY + Math.random() * 7 - 3.5)) }
 }
 function initialTreasures() { return START_POSITIONS.slice(0, 10).map((_, index) => makeTreasure(index, index < KINDS.length ? KINDS[index] : undefined)) }
-function hookPoint(angle: number, length: number, aspect: number) { const radians = angle * Math.PI / 180; return { x: 50 + Math.sin(radians) * length * aspect, y: 13 + Math.cos(radians) * length } }
-function firstTreasureTouched(items: Treasure[], angle: number, fromLength: number, toLength: number, width: number, height: number) {
-  const radians = angle * Math.PI / 180; const anchorX = width / 2; const anchorY = height * .13
-  const startDistance = fromLength / 100 * height; const endDistance = toLength / 100 * height + 14
-  const startX = anchorX + Math.sin(radians) * startDistance; const startY = anchorY + Math.cos(radians) * startDistance
-  const endX = anchorX + Math.sin(radians) * endDistance; const endY = anchorY + Math.cos(radians) * endDistance
-  const dx = endX - startX; const dy = endY - startY; const segmentLengthSquared = dx * dx + dy * dy || 1
-  return items.map((item) => {
-    const x = item.x / 100 * width; const y = item.y / 100 * height
-    const t = Math.max(0, Math.min(1, ((x - startX) * dx + (y - startY) * dy) / segmentLengthSquared))
-    const closestX = startX + t * dx; const closestY = startY + t * dy
-    return { item, touches: Math.hypot(x - closestX, y - closestY) <= item.size * .45 + 8, distance: Math.hypot(x - anchorX, y - anchorY) }
-  }).filter((result) => result.touches).sort((a, b) => a.distance - b.distance)[0]?.item
-}
 
 export function MinerView({ levelId, onExit }: Props) {
   const selection = useMemo(() => parseLevelSelection(levelId), [levelId])
@@ -56,7 +43,7 @@ export function MinerView({ levelId, onExit }: Props) {
   useEffect(() => { angleRef.current = angle }, [angle]); useEffect(() => { treasuresRef.current = treasures }, [treasures]); useEffect(() => { hookedIdRef.current = hookedId }, [hookedId])
   useEffect(() => { if (!bookId) return setBookWords([]); let alive = true; loadBookWords(bookId).then((words) => alive && setBookWords(words)); return () => { alive = false } }, [bookId])
   const level = useMemo(() => meta ? generateLevels({ meta, words: bookWords }, settings).find((item) => item.id === selection.baseLevelId) : undefined, [meta, bookWords, settings, selection.baseLevelId])
-  const duration = (level?.index ?? 0) + 1; const durationSeconds = duration * 60; const remaining = Math.max(0, durationSeconds - elapsed); const sceneRect = sceneRef.current?.getBoundingClientRect(); const point = hookPoint(angle, hookLength, sceneRect ? sceneRect.height / sceneRect.width : 1.1)
+  const duration = (level?.index ?? 0) + 1; const durationSeconds = duration * 60; const remaining = Math.max(0, durationSeconds - elapsed); const sceneRect = sceneRef.current?.getBoundingClientRect(); const point = minerHookPoint(angle, hookLength, sceneRect ? sceneRect.height / sceneRect.width : 1.1)
 
   const begin = () => {
     unlockAudio(); replayRun.current = !!user && isLevelSelectionCleared(user.levelProgress, levelId); recorded.current = false; startedAt.current = Date.now(); swingDirection.current = 1
@@ -68,7 +55,7 @@ export function MinerView({ levelId, onExit }: Props) {
     const motion = window.setInterval(() => {
       if (hookMode === 'swinging') { setAngle((current) => { let next = current + swingDirection.current * 1.8; if (next >= 62) { next = 62; swingDirection.current = -1 } if (next <= -62) { next = -62; swingDirection.current = 1 } return next }); return }
       if (hookMode === 'dropping') {
-        setHookLength((current) => { const next = Math.min(96, current + 2.8); const rect = sceneRef.current?.getBoundingClientRect(); const width = rect?.width || 390; const height = rect?.height || 430; const hook = hookPoint(angleRef.current, next, height / width); const caught = firstTreasureTouched(treasuresRef.current, angleRef.current, current, next, width, height); if (caught) { setHookedId(caught.id); hookedIdRef.current = caught.id; setHookMode('retracting'); SFX.hit() } else if (next >= 96 || hook.x <= 1 || hook.x >= 99 || hook.y >= 99) setHookMode('retracting'); return next })
+        setHookLength((current) => { const next = Math.min(96, current + 2.8); const rect = sceneRef.current?.getBoundingClientRect(); const width = rect?.width || 390; const height = rect?.height || 430; const hook = minerHookPoint(angleRef.current, next, height / width); const caught = firstMinerTreasureTouched(treasuresRef.current, angleRef.current, current, next, width, height); if (caught) { setHookedId(caught.id); hookedIdRef.current = caught.id; setHookMode('retracting'); SFX.hit() } else if (next >= 96 || hook.x <= 1 || hook.x >= 99 || hook.y >= 99) setHookMode('retracting'); return next })
         return
       }
       setHookLength((current) => { const caught = treasuresRef.current.find((item) => item.id === hookedIdRef.current); const speed = caught?.kind === 'stone' || caught?.kind === 'largeGold' ? 1.35 : 2.5; const next = Math.max(11, current - speed); if (next <= 11) { if (caught) { setCoins((value) => value + caught.value); setRewardPop({ id: Date.now(), text: `${caught.label} +${caught.value}` }); setTreasures((items) => [...items.filter((item) => item.id !== caught.id), makeTreasure(Math.floor(Math.random() * START_POSITIONS.length))]); SFX.pop() } setHookedId(null); hookedIdRef.current = null; setHookMode('swinging') } return next })
