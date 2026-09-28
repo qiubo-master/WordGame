@@ -68,6 +68,19 @@ function makeUser(nickname: string, color: string): UserData {
   }
 }
 
+// 同名离线游客登录云账号时，只补充线上没有的学习记录；所有冲突均以线上为准。
+// 金币、装备、身份资料等资产完全采用线上数据，避免离线数据覆盖或重复记账。
+function mergeGuestIntoRemote(guest: UserData, remote: UserData): UserData {
+  return {
+    ...remote,
+    activeBookId: remote.activeBookId ?? guest.activeBookId,
+    wordStates: { ...guest.wordStates, ...remote.wordStates },
+    levelProgress: { ...guest.levelProgress, ...remote.levelProgress },
+    dailyStats: { ...guest.dailyStats, ...remote.dailyStats },
+    wrongWords: { ...(guest.wrongWords ?? {}), ...(remote.wrongWords ?? {}) },
+  }
+}
+
 export const WRONG_CLEAR_STREAK = 2
 
 function previousKey(key: string): string {
@@ -180,9 +193,15 @@ export const useAppStore = create<AppStore>()(
             typeof remoteUser.dailyStats === 'object'
           ) {
             const id = remoteUser.profile.id
+            const localId = s.currentUserId
+            const localGuest = localId && s.userOrder.includes(localId) ? s.users[localId] : null
+            const sameName = !!localGuest && localGuest.profile.nickname.trim().toLocaleLowerCase() === auth.username.trim().toLocaleLowerCase()
+            const mergedUser = sameName ? mergeGuestIntoRemote(localGuest, remoteUser) : remoteUser
+            const users = { ...s.users, [id]: mergedUser }
+            if (sameName && localId && localId !== id) delete users[localId]
             // 云端账号不进 userOrder：退出后不应出现在"选择学习者"列表
-            const userOrder = s.userOrder.filter((x) => x !== id)
-            return { auth, users: { ...s.users, [id]: remoteUser }, userOrder, currentUserId: id }
+            const userOrder = s.userOrder.filter((x) => x !== id && x !== localId)
+            return { auth, users, userOrder, currentUserId: id }
           }
           // 云端无存档或数据不完整：本地游客进度并入账号；本地也空则按用户名建新学习者
           if (s.currentUserId && s.users[s.currentUserId]) {

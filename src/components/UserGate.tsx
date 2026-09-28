@@ -99,22 +99,42 @@ export function UserGate({ onEnterAdmin }: Props) {
     }
   }
 
-  const handleCreate = () => {
-    if (!name.trim()) {
+  const handleCreate = async () => {
+    const nickname = name.trim()
+    if (!nickname) {
       toast('先起个名字吧')
       return
     }
-    createUser(name, colorIdx)
+    if (busy) return
+    setBusy(true)
+    setFormError('')
+    try {
+      const result = await apiCheck(nickname, '')
+      setOnline(true)
+      if (result.usernameTaken) {
+        setFormError('该名字已经是云端账号，请返回并登录该账号，不能创建同名游客')
+        return
+      }
+    } catch {
+      setOnline(false)
+      toast('当前离线：已创建本地游客，恢复网络后登录同名云账号会安全合并进度')
+    } finally {
+      setBusy(false)
+    }
+    createUser(nickname, colorIdx)
   }
 
   const finishLogin = async (auth: AuthInfo) => {
+    // apiGetSave 从安全存储读取令牌；仅写入令牌不会触发 Zustand 自动同步。
     saveAuth(auth)
-    let remoteUser: UserData | null = null
+    let remoteUser: UserData | null
     try {
       const remote = await apiGetSave()
       remoteUser = (remote?.data as UserData | null) ?? null
     } catch {
-      /* 拉取失败先用本地数据，之后自动同步 */
+      // 绝不能在未取得线上存档时绑定本地游客，否则自动同步可能覆盖线上数据。
+      saveAuth(null)
+      throw new Error('登录验证成功，但云端存档加载失败。为保护线上进度，请联网后重试')
     }
     applyLogin(auth, remoteUser)
     toast('登录成功')
@@ -368,8 +388,9 @@ export function UserGate({ onEnterAdmin }: Props) {
               ))}
             </div>
             <button className="btn" onClick={handleCreate}>
-              开始学习
+              {busy ? '正在校验云端用户名…' : '开始学习'}
             </button>
+            {formError && <div style={errStyle}>{formError}</div>}
             <div className="btn-row" style={{ marginTop: 10 }}>
               <button className="btn ghost" onClick={() => setMode(userOrder.length ? 'pick' : 'login')}>
                 {userOrder.length > 0 ? '返回选择' : '返回登录'}
