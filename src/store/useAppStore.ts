@@ -691,13 +691,20 @@ async function syncCloudSave() {
     syncRunning = false
     if (syncPending) {
       syncPending = false
-      window.setTimeout(() => void syncCloudSave(), 0)
+      window.setTimeout(() => void syncCloudSave().catch(() => {}), 0)
     }
   }
 }
 
 export async function refreshCloudSave() {
+  // 排行榜等显式刷新需要等正在执行的后台同步真正落库，避免读取到刷新前的排名。
+  while (syncRunning) await new Promise<void>((resolve) => window.setTimeout(resolve, 25))
   await syncCloudSave()
+  // 让同步过程中登记的补偿任务先启动，再判断是否真正空闲。
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0))
+  while (syncRunning || syncPending) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 25))
+  }
 }
 
 useAppStore.subscribe((s) => {

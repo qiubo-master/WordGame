@@ -13,6 +13,9 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   celestial: '天体',
   eternal: '永恒',
   blackhole: '黑洞',
+  bosonstar: '玻色子星',
+  supercluster: '超星系团',
+  universe: '宇宙',
 }
 
 export const RARITY_COLOR: Record<Rarity, string> = {
@@ -26,6 +29,9 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   celestial: '#4169e1',
   eternal: '#ef8d22',
   blackhole: '#17122d',
+  bosonstar: '#00a8a8',
+  supercluster: '#7446d7',
+  universe: '#f4d87b',
 }
 
 export const ITEM_CATALOG: Item[] = [
@@ -139,6 +145,9 @@ export const ITEM_CATALOG: Item[] = [
   { id:'celestial-core', name:'天体核心', icon:'gem', rarity:'celestial', price:10000, effects:[{type:'scoreBonus',value:160},{type:'extraTime',value:80}], desc:'全游戏得分 +160%，额外 +80 秒', game:'all' },
   { id:'eternal-crown', name:'永恒王冠', icon:'star', rarity:'eternal', price:16000, effects:[{type:'scoreBonus',value:200},{type:'shield',value:5}], desc:'全游戏得分 +200%，抵消 5 次错误', game:'all' },
   { id:'blackhole-orb', name:'黑洞奇点', icon:'gem', rarity:'blackhole', price:25000, effects:[{type:'scoreBonus',value:260},{type:'comboBonus',value:140},{type:'extraTime',value:120}], desc:'全游戏得分 +260%，连击 +140%，额外 +120 秒', game:'all' },
+  { id:'boson-star-core', name:'玻色子星核', icon:'gem', rarity:'bosonstar', price:40000, effects:[{type:'scoreBonus',value:320},{type:'comboBonus',value:180},{type:'extraTime',value:160}], desc:'全游戏得分 +320%，连击 +180%，额外 +160 秒', game:'all' },
+  { id:'supercluster-scepter', name:'超星系团权杖', icon:'star', rarity:'supercluster', price:65000, effects:[{type:'scoreBonus',value:400},{type:'shield',value:5},{type:'extraTime',value:240}], desc:'全游戏得分 +400%，抵消 5 次错误，额外 +240 秒', game:'all' },
+  { id:'universe-heart', name:'宇宙之心', icon:'gem', rarity:'universe', price:100000, effects:[{type:'scoreBonus',value:500},{type:'comboBonus',value:260},{type:'extraTime',value:300}], desc:'全游戏得分 +500%，连击 +260%，额外 +300 秒', game:'all' },
 ]
 
 export interface AggregatedEffects {

@@ -123,5 +123,5 @@ export async function apiGetLeaderboard(): Promise<{
   rows: LeaderboardEntry[]
   generatedAt: number
 }> {
-  return req('/leaderboard') as Promise<{ rows: LeaderboardEntry[]; generatedAt: number }>
+  return req('/leaderboard', { cache: 'no-store' }) as Promise<{ rows: LeaderboardEntry[]; generatedAt: number }>
 }

@@ -74,6 +74,9 @@ export type Rarity =
   | 'celestial'
   | 'eternal'
   | 'blackhole'
+  | 'bosonstar'
+  | 'supercluster'
+  | 'universe'
 
 export interface Item {
   id: string

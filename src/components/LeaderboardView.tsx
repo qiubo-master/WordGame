@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiGetLeaderboard, apiPutSave } from '../engine/api'
-import { useAppStore, useCurrentUser } from '../store/useAppStore'
+import { apiGetLeaderboard } from '../engine/api'
+import { refreshCloudSave, useAppStore } from '../store/useAppStore'
 import type { LeaderboardEntry } from '../types'
 import { Icon } from './Icon'
 
 export function LeaderboardView() {
   const auth = useAppStore((state) => state.auth)
-  const user = useCurrentUser()
   const [rows, setRows] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     if (!auth) {
@@ -20,15 +20,18 @@ export function LeaderboardView() {
     setLoading(true)
     setError('')
     try {
-      if (user) await apiPutSave(user)
+      // 先用带版本校验的同步流程上传本机最新进度。同步冲突由后台自动合并，
+      // 不应阻挡排行榜读取或把“云存档已更新”展示给用户。
+      try { await refreshCloudSave() } catch { /* 排行榜仍可独立读取 */ }
       const result = await apiGetLeaderboard()
       setRows(result.rows)
+      setUpdatedAt(result.generatedAt)
     } catch (e) {
       setError(e instanceof Error ? e.message : '排行榜加载失败，请稍后再试')
     } finally {
       setLoading(false)
     }
-  }, [auth, user])
+  }, [auth])
 
   useEffect(() => {
     load()
@@ -40,9 +43,12 @@ export function LeaderboardView() {
         <Icon name="trophy" size={34} color="var(--gold)" />
         <div>
           <div className="section-title" style={{ margin: 0 }}>学习排行榜</div>
-          <div className="tiny muted">先比今日学习词数，再比累计掌握词数</div>
+          <div className="tiny muted">
+            先比今日学习词数，再比累计掌握词数
+            {updatedAt ? ` · 实时更新于 ${new Date(updatedAt).toLocaleTimeString('zh-CN', { hour12: false })}` : ''}
+          </div>
         </div>
-        <button className="tag" onClick={load} disabled={loading}>刷新</button>
+        <button className="tag" onClick={load} disabled={loading}>{loading ? '刷新中…' : '刷新'}</button>
       </div>
 
       <div className="leaderboard-head">

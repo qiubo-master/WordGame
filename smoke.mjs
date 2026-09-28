@@ -231,6 +231,9 @@ try {
   // ---- 商城 / 背包 ----
   await clickText('商城')
   check('商城列出小沙漏', text().includes('小沙漏'))
+  check('商城列出玻色子星等级', text().includes('玻色子星核') && text().includes('玻色子星'))
+  check('商城列出超星系团等级', text().includes('超星系团权杖') && text().includes('超星系团'))
+  check('商城列出宇宙等级', text().includes('宇宙之心') && text().includes('宇宙'))
   await act(async () => {
     __store.getState().addCoins(500, '测试')
   })
