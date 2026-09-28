@@ -227,18 +227,17 @@ async function handlePutSave(body, auth) {
   const now = Date.now()
   const summary = summarizeSave(data, now)
   const db = database()
-  const r = await db.collection('saves').where({ userId: auth.uid }).get()
-  if (r.data && r.data.length) {
-    await db.collection('saves').doc(r.data[0]._id).update({
-      data: jsonStr,
-      updatedAt: now,
-      username: auth.username,
-      todayCount: summary.todayCount,
-      totalCount: summary.totalCount,
-      statsDate: summary.statsDate,
-    })
-  } else {
-    await db.collection('saves').add({
+  const expected = body.expectedUpdatedAt ?? null
+  const transactionResponse = await db.runTransaction(async (transaction) => {
+    const r = await transaction.collection('saves').where({ userId: auth.uid }).get()
+    const current = r.data && r.data[0]
+    const actual = current ? Number(current.updatedAt) : null
+    if (expected !== actual) {
+      let remoteData = null
+      try { remoteData = current ? JSON.parse(current.data) : null } catch { remoteData = null }
+      return { conflict: true, data: remoteData, updatedAt: actual }
+    }
+    const next = {
       userId: auth.uid,
       data: jsonStr,
       updatedAt: now,
@@ -246,6 +245,20 @@ async function handlePutSave(body, auth) {
       todayCount: summary.todayCount,
       totalCount: summary.totalCount,
       statsDate: summary.statsDate,
+    }
+    if (current) await transaction.collection('saves').doc(current._id).update(next)
+    else await transaction.collection('saves').doc(auth.uid).set(next)
+    return { conflict: false }
+  })
+  // node-sdk 版本间 runTransaction 返回值有两种形态：回调值本身，或 { result }。
+  const outcome = transactionResponse && transactionResponse.result
+    ? transactionResponse.result
+    : transactionResponse
+  if (outcome && outcome.conflict) {
+    return json(409, {
+      error: '云存档已在另一台设备更新',
+      data: outcome.data,
+      updatedAt: outcome.updatedAt,
     })
   }
   return json(200, { ok: true, updatedAt: now })

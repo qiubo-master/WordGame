@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAppStore, useCurrentUser } from './store/useAppStore'
+import { refreshCloudSave, useAppStore, useCurrentUser } from './store/useAppStore'
 import type { GameType, ViewName } from './types'
 import { Icon } from './components/Icon'
 import { ToastHost } from './components/Toast'
@@ -49,6 +49,18 @@ export default function App() {
   useEffect(() => {
     if (currentUserId) touch()
   }, [currentUserId, touch])
+
+  useEffect(() => {
+    if (!auth || !currentUserId) return
+    void refreshCloudSave()
+    const refresh = () => document.visibilityState === 'visible' && void refreshCloudSave()
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('online', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('online', refresh)
+    }
+  }, [auth, currentUserId])
 
   const navigate = (v: ViewName) => {
     if (v !== 'study') {

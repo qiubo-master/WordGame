@@ -20,6 +20,12 @@ function friendlyApiError(message: unknown, status: number): string {
   return `请求失败，请稍后重试（${status}）`
 }
 
+export class SaveConflictError extends Error {
+  constructor(public data: unknown, public updatedAt: number | null) {
+    super('云存档已在另一台设备更新')
+  }
+}
+
 export function getAuth(): AuthInfo | null {
   try {
     const raw = localStorage.getItem(AUTH_KEY)
@@ -57,6 +63,10 @@ async function req(path: string, init?: RequestInit): Promise<unknown> {
     body = null
   }
   if (!res.ok) {
+    if (res.status === 409 && path === '/save') {
+      const conflict = body as { data?: unknown; updatedAt?: number | null } | null
+      throw new SaveConflictError(conflict?.data, conflict?.updatedAt ?? null)
+    }
     const msg = (body as { error?: string } | null)?.error
     throw new Error(friendlyApiError(msg, res.status))
   }
@@ -102,10 +112,10 @@ export async function apiGetSave(): Promise<{ data: unknown; updatedAt: number |
   return req('/save') as Promise<{ data: unknown; updatedAt: number | null }>
 }
 
-export async function apiPutSave(data: unknown): Promise<{ ok: boolean; updatedAt: number }> {
+export async function apiPutSave(data: unknown, expectedUpdatedAt?: number | null): Promise<{ ok: boolean; updatedAt: number }> {
   return req('/save', {
     method: 'PUT',
-    body: JSON.stringify({ data }),
+    body: JSON.stringify({ data, expectedUpdatedAt }),
   }) as Promise<{ ok: boolean; updatedAt: number }>
 }
 

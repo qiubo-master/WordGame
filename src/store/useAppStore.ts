@@ -18,7 +18,7 @@ import { coinsForCombo, coinsForStudy } from '../engine/economy'
 import { getItem } from '../engine/items'
 import { starsForScore } from '../engine/levels'
 import { DEFAULT_SETTINGS } from '../engine/settings'
-import { apiPutSave, getAuth, saveAuth } from '../engine/api'
+import { apiGetSave, apiPutSave, getAuth, saveAuth, SaveConflictError } from '../engine/api'
 
 export const AVATAR_COLORS = ['#185FA5', '#0F6E56', '#993C1D', '#534AB7', '#A32D2D', '#3B6D11']
 
@@ -78,6 +78,69 @@ function mergeGuestIntoRemote(guest: UserData, remote: UserData): UserData {
     levelProgress: { ...guest.levelProgress, ...remote.levelProgress },
     dailyStats: { ...guest.dailyStats, ...remote.dailyStats },
     wrongWords: { ...(guest.wrongWords ?? {}), ...(remote.wrongWords ?? {}) },
+  }
+}
+
+function mergeDeviceSaves(local: UserData, remote: UserData): UserData {
+  const wordStates = { ...remote.wordStates }
+  for (const [id, state] of Object.entries(local.wordStates)) {
+    const cloud = wordStates[id]
+    if (!cloud) wordStates[id] = state
+    else {
+      const latest = (state.lastReviewedAt ?? 0) > (cloud.lastReviewedAt ?? 0) ? state : cloud
+      wordStates[id] = {
+        ...latest,
+        correctCount: Math.max(state.correctCount, cloud.correctCount),
+        wrongCount: Math.max(state.wrongCount, cloud.wrongCount),
+        reviewCount: Math.max(state.reviewCount, cloud.reviewCount),
+      }
+    }
+  }
+  const levelProgress = { ...remote.levelProgress }
+  for (const [id, progress] of Object.entries(local.levelProgress)) {
+    const cloud = levelProgress[id]
+    if (!cloud) levelProgress[id] = progress
+    else levelProgress[id] = {
+      ...cloud,
+      status: cloud.status === 'cleared' || progress.status === 'cleared' ? 'cleared' : cloud.status,
+      bestScore: Math.max(cloud.bestScore, progress.bestScore),
+      stars: Math.max(cloud.stars, progress.stars),
+      clearedAt: Math.max(cloud.clearedAt ?? 0, progress.clearedAt ?? 0) || undefined,
+    }
+  }
+  const wrongWords = { ...(remote.wrongWords ?? {}) }
+  for (const [id, entry] of Object.entries(local.wrongWords ?? {})) {
+    if (!wrongWords[id] || entry.lastWrongAt > wrongWords[id].lastWrongAt) wrongWords[id] = entry
+  }
+  const dailyStats: Record<string, DailyStat> = {}
+  for (const date of new Set([...Object.keys(local.dailyStats), ...Object.keys(remote.dailyStats)])) {
+    const device = local.dailyStats[date]
+    const cloud = remote.dailyStats[date]
+    if (!device) dailyStats[date] = cloud
+    else if (!cloud) dailyStats[date] = device
+    else dailyStats[date] = {
+      date,
+      newWords: Math.max(device.newWords, cloud.newWords),
+      reviewWords: Math.max(device.reviewWords, cloud.reviewWords),
+      correctCount: Math.max(device.correctCount, cloud.correctCount),
+      wrongCount: Math.max(device.wrongCount, cloud.wrongCount),
+      studySeconds: Math.max(device.studySeconds, cloud.studySeconds),
+      gameSeconds: Math.max(device.gameSeconds, cloud.gameSeconds),
+      coinsEarned: Math.max(device.coinsEarned, cloud.coinsEarned),
+      gamesPlayed: Math.max(device.gamesPlayed, cloud.gamesPlayed),
+    }
+  }
+  return {
+    ...remote,
+    activeBookId: local.activeBookId ?? remote.activeBookId,
+    wordStates,
+    levelProgress,
+    wrongWords,
+    dailyStats,
+    wallet: { coins: Math.max(local.wallet.coins, remote.wallet.coins) },
+    gameHistory: [...local.gameHistory, ...remote.gameHistory]
+      .filter((item, index, all) => all.findIndex((x) => x.playedAt === item.playedAt && x.levelId === item.levelId) === index)
+      .sort((a, b) => b.playedAt - a.playedAt).slice(0, HISTORY_CAP),
   }
 }
 
@@ -586,18 +649,65 @@ export function useCurrentUser(): UserData | null {
 }
 
 let syncTimer: number | null = null
+let syncRunning = false
+let syncPending = false
+let suppressSync = false
+
+async function syncCloudSave() {
+  if (syncRunning) {
+    syncPending = true
+    return
+  }
+  syncRunning = true
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const st = useAppStore.getState()
+      if (!st.auth || !st.currentUserId) return
+      const local = st.users[st.currentUserId]
+      if (!local) return
+      const remote = await apiGetSave()
+      const merged = remote.data ? mergeDeviceSaves(local, remote.data as UserData) : local
+      try {
+        await apiPutSave(merged, remote.updatedAt)
+        const latestState = useAppStore.getState()
+        if (!latestState.auth || latestState.currentUserId !== st.currentUserId) return
+        const latestLocal = latestState.users[st.currentUserId]
+        if (!latestLocal) return
+        const localChangedWhileSaving = latestLocal !== local
+        const localToKeep = localChangedWhileSaving ? mergeDeviceSaves(latestLocal, merged) : merged
+        suppressSync = true
+        useAppStore.setState((state) => ({
+          users: { ...state.users, [st.currentUserId!]: localToKeep },
+        }))
+        suppressSync = false
+        if (localChangedWhileSaving) syncPending = true
+        return
+      } catch (error) {
+        if (!(error instanceof SaveConflictError) || attempt === 2) throw error
+      }
+    }
+  } finally {
+    suppressSync = false
+    syncRunning = false
+    if (syncPending) {
+      syncPending = false
+      window.setTimeout(() => void syncCloudSave(), 0)
+    }
+  }
+}
+
+export async function refreshCloudSave() {
+  await syncCloudSave()
+}
 
 useAppStore.subscribe((s) => {
+  if (suppressSync) return
   if (!s.auth || !s.currentUserId || !s.users[s.currentUserId]) return
   if (syncTimer) window.clearTimeout(syncTimer)
   syncTimer = window.setTimeout(async () => {
     syncTimer = null
-    const st = useAppStore.getState()
-    if (!st.auth || !st.currentUserId) return
-    const u = st.users[st.currentUserId]
-    if (!u) return
     try {
-      await apiPutSave(u)
+      await syncCloudSave()
     } catch {
       /* 离线或后端未启动：静默降级，下次状态变化自动重试 */
     }

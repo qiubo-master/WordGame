@@ -140,6 +140,14 @@ app.put('/api/save', authRequired, (req, res) => {
     return res.status(413).json({ error: '存档过大' })
   }
   const now = Date.now()
+  const current = db.prepare('SELECT data, updated_at FROM saves WHERE user_id = ?').get(req.auth.uid)
+  const expected = req.body?.expectedUpdatedAt ?? null
+  const actual = current ? Number(current.updated_at) : null
+  if (expected !== actual) {
+    let remoteData = null
+    try { remoteData = current ? JSON.parse(current.data) : null } catch { remoteData = null }
+    return res.status(409).json({ error: '云存档已在另一台设备更新', data: remoteData, updatedAt: actual })
+  }
   db.prepare(
     `INSERT INTO saves (user_id, data, updated_at) VALUES (?,?,?)
      ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
