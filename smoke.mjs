@@ -204,6 +204,22 @@ try {
   })
   await clickText('记住了，继续')
 
+  // ---- 已登录账号默认优先错词 ----
+  await act(async () => {
+    __store.setState({
+      auth: { token: 'smoke-token', userId: uid(), username: '小明', phone: '13800000000' },
+    })
+  })
+  await clickText('首页')
+  check('登录账号有错词时显示优先复习入口', text().includes('先复习错词（1）'))
+  await clickText('先复习错词')
+  await wait(30)
+  check('登录账号默认进入错词练习', text().includes('错词练习'))
+  check('默认练习当前词库错词', currentWord()?.id === w1.id, `实际: ${currentWord()?.word}`)
+  await act(async () => {
+    __store.setState({ auth: null })
+  })
+
   // ---- 错词本 ----
   await clickText('错词')
   check('错词本有内容', text().includes('个错词'))

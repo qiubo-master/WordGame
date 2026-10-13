@@ -8,9 +8,11 @@ import { Icon } from './Icon'
 
 interface Props {
   onNavigate: (v: ViewName) => void
+  onStartStudy?: () => void
+  pendingWrongCount?: number
 }
 
-export function HomeView({ onNavigate }: Props) {
+export function HomeView({ onNavigate, onStartStudy, pendingWrongCount = 0 }: Props) {
   const user = useCurrentUser()
   const touch = useAppStore((s) => s.touch)
   const settings = useSettings()
@@ -111,14 +113,32 @@ export function HomeView({ onNavigate }: Props) {
             className="btn"
             onClick={() => {
               touch()
-              onNavigate('study')
+              if (onStartStudy) onStartStudy()
+              else onNavigate('study')
             }}
           >
-            继续背单词
+            {pendingWrongCount > 0 ? `先复习错词（${pendingWrongCount}）` : '继续背单词'}
           </button>
+          {pendingWrongCount > 0 && (
+            <div className="tiny muted" style={{ marginTop: 7, textAlign: 'center' }}>
+              登录账号优先巩固错词，练完后再学习新词
+            </div>
+          )}
         </div>
       ) : (
-        <button className="btn" onClick={() => onNavigate('books')}>选择词库</button>
+        pendingWrongCount > 0 ? (
+          <button
+            className="btn"
+            onClick={() => {
+              touch()
+              onStartStudy?.()
+            }}
+          >
+            先复习错词（{pendingWrongCount}）
+          </button>
+        ) : (
+          <button className="btn" onClick={() => onNavigate('books')}>选择词库</button>
+        )
       )}
 
       <div className="menu-grid" style={{ marginTop: 12 }}>

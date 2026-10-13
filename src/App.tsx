@@ -52,8 +52,8 @@ export default function App() {
 
   useEffect(() => {
     if (!auth || !currentUserId) return
-    void refreshCloudSave()
-    const refresh = () => document.visibilityState === 'visible' && void refreshCloudSave()
+    void refreshCloudSave().catch(() => {})
+    const refresh = () => document.visibilityState === 'visible' && void refreshCloudSave().catch(() => {})
     document.addEventListener('visibilitychange', refresh)
     window.addEventListener('online', refresh)
     return () => {
@@ -68,6 +68,29 @@ export default function App() {
       setStudyFocusMode(null)
     }
     setView(v)
+  }
+
+  const wrongEntries = auth
+    ? Object.values(user?.wrongWords ?? {}).sort((a, b) => b.lastWrongAt - a.lastWrongAt)
+    : []
+  const defaultWrongBookId = wrongEntries.some((entry) => entry.bookId === user?.activeBookId)
+    ? user?.activeBookId ?? null
+    : wrongEntries[0]?.bookId ?? null
+  const defaultWrongIds = defaultWrongBookId
+    ? wrongEntries.filter((entry) => entry.bookId === defaultWrongBookId).map((entry) => entry.wordId)
+    : []
+
+  const startDefaultStudy = () => {
+    if (auth && user && defaultWrongBookId && defaultWrongIds.length > 0) {
+      if (user.activeBookId !== defaultWrongBookId) setActiveBook(defaultWrongBookId)
+      setStudyFocus(defaultWrongIds)
+      setStudyFocusMode('mistakes')
+      setView('study')
+      return
+    }
+    setStudyFocus(null)
+    setStudyFocusMode(null)
+    setView('study')
   }
 
   const playLevel = (levelId: string, gameType: GameType) => {
@@ -142,7 +165,13 @@ export default function App() {
         )}
       </div>
 
-      {view === 'home' && <HomeView onNavigate={navigate} />}
+      {view === 'home' && (
+        <HomeView
+          onNavigate={navigate}
+          onStartStudy={startDefaultStudy}
+          pendingWrongCount={defaultWrongIds.length}
+        />
+      )}
       {view === 'books' && <BooksView onNavigate={navigate} />}
       {view === 'study' && (
         <StudyView
